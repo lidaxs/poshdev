@@ -1,4 +1,8 @@
 ﻿<#
+version 1.0.8
+rewritten synopsis for Invoke-PatchProcess
+added -erroraction stop to get-wmiobject
+
 version 1.0.7
 removed unapproved verbs and implemented SupportsShouldProcess
 removed SetlabeledUri and ClearLabeledUriBefore from function Get-MissingWidowsUpdates and the scriptblock
@@ -161,12 +165,7 @@ function Start-ProcessingPatchFiles
 				if(($output.exitcode -eq 0) -or ($output.exitcode -eq 3010)-or ($output.exitcode -eq 1642) -or ($output.exitcode -eq 1641) -or ($output.ExitCode -eq -2145124329))
 				{
                     $output.IsDeployed=$true
-                    #Write-Verbose "Removing $File from labeledUri attribute"
-                    #$obj_adsi.labeledURI.Remove($File)
-                    #Write-Verbose "Committing changes to AD"
-                    #$obj_adsi.CommitChanges()
-                    #Write-Verbose "Refreshing AD Cache"
-                    #$obj_adsi.RefreshCache()
+
                 }
                 else{
                     $output.IsDeployed=$false
@@ -339,28 +338,25 @@ function Invoke-PatchProcess
 {
 	<#
 		.SYNOPSIS
-			A brief description of the function.
+			Starts the patchprocess of given patchfile.
 
 		.DESCRIPTION
-			A detailed description of the function.
+			Starts process with arguments and returns exitcode.
 
-		.PARAMETER  ParameterA
-			The description of the ParameterA parameter.
+		.PARAMETER  ProcessName
+			The description of the ProcessName parameter.
 
-		.PARAMETER  ParameterB
-			The description of the ParameterB parameter.
-
-		.EXAMPLE
-			PS C:\> Get-Something -ParameterA 'One value' -ParameterB 32
+		.PARAMETER  Arguments
+			The description of the Arguments parameter.
 
 		.EXAMPLE
-			PS C:\> Get-Something 'One value' 32
+			Invoke-PatchProcess -ProcessName C:\Windows\System32\msiexec.exe -Arguments "/update", "<path to .msp file>", "/norestart", "/quiet"
 
 		.INPUTS
-			System.String,System.Int32
+			System.String
 
 		.OUTPUTS
-			System.String
+			System.Int32
 
 		.NOTES
 			Additional information about the function go here.
@@ -392,7 +388,7 @@ function Invoke-PatchProcess
 				Write-Verbose "Starting process $ProcessName with arguments $Arguments"
 				Start-Process $ProcessName -ArgumentList $Arguments -Passthru -Wait -OutVariable var_result
 
-				Write-Verbose "returning exitcode $($var_result.Item(0).ExitCode) from function Start-PatchProcess"
+				Write-Verbose "returning exitcode $($var_result.Item(0).ExitCode) from function Invoke-PatchProcess"
 
 				return $($var_result.Item(0).ExitCode)
 			}
@@ -774,12 +770,20 @@ function Get-MissingWindowsUpdates
 									[void]$OSDirectories.Add("SQL 2016")
 								}
 
-								try {
-									#$result=Get-WmiObject -ComputerName $($Computer) -Namespace ROOT\ccm\SoftwareUpdates\UpdatesStore -Query $qry
-									$result=Get-WmiObject -ComputerName $env:COMPUTERNAME -Namespace ROOT\ccm\SoftwareUpdates\UpdatesStore -Query $qry -ErrorAction Stop
+								try
+								{
+									$result=Get-WmiObject -ComputerName $($Computer) -Namespace ROOT\ccm\SoftwareUpdates\UpdatesStore -Query $qry -ErrorAction Stop
+									#$result=Get-WmiObject -ComputerName $env:COMPUTERNAME -Namespace ROOT\ccm\SoftwareUpdates\UpdatesStore -Query $qry -ErrorAction Stop
 								}
-								catch  [System.Management.ManagementException] {
+								catch [System.Management.ManagementException]
+								{
 									Write-Warning "You should run this script with elevated rights..exiting!"
+									break
+								}
+								catch
+								{
+									Write-Warning -Message $Error[0].Exception.Message
+									Write-Warning -Message "exiting script"
 									break
 								}
                                 
