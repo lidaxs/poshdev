@@ -1,7 +1,9 @@
 ﻿<#
 version 1.0.7
-not yet published!!
 removed unapproved verbs and implemented SupportsShouldProcess
+removed SetlabeledUri and ClearLabeledUriBefore from function Get-MissingWidowsUpdates and the scriptblock
+(is obsolete now because updates are checked from the local store instead of the labeledUri object in Active Directory)
+added try catch block to address elevation issue
 
 version 1.0.6
 set $subject properly in 
@@ -156,7 +158,8 @@ function Start-ProcessingPatchFiles
                 $output.ExitCode=$processinfo[1]
                 $output.Message=$message
                 $output.FreeVirtualMemoryPercentage=Get-Memory | Select-Object -ExpandProperty FreeVirtualPercentage
-                if(($output.exitcode -eq 0) -or ($output.exitcode -eq 3010)-or ($output.exitcode -eq 1642) -or ($output.exitcode -eq 1641) -or ($output.ExitCode -eq -2145124329)){
+				if(($output.exitcode -eq 0) -or ($output.exitcode -eq 3010)-or ($output.exitcode -eq 1642) -or ($output.exitcode -eq 1641) -or ($output.ExitCode -eq -2145124329))
+				{
                     $output.IsDeployed=$true
                     #Write-Verbose "Removing $File from labeledUri attribute"
                     #$obj_adsi.labeledURI.Remove($File)
@@ -573,6 +576,12 @@ function Get-MissingWindowsUpdates
 		.PARAMETER MultiThread
 			Enable multithreading
 
+		.PARAMETER IncludeOfficeUpdates
+			Includes officeupdates in result
+
+		.PARAMETER IncludeSQLUpdates
+			Includes SQLupdates in result
+
 		.PARAMETER MaxThreads
 			Maximum number of threads to run simultaneously
 
@@ -619,10 +628,6 @@ function Get-MissingWindowsUpdates
         [String]$Article,
 
         [String]$Bulletin,
-    
-        [Switch]$SetLabeledUri,
-
-        [Switch]$ClearLabeledUriBefore,
 
         [Switch]$IncludeOfficeUpdates,
 
@@ -717,10 +722,6 @@ function Get-MissingWindowsUpdates
 
                     [String]$Bulletin,
 
-                    [Switch]$SetLabeledUri,
-
-                    [Switch]$ClearLabeledUriBefore,
-
                     [Switch]$IncludeOfficeUpdates,
 
                     [Switch]$IncludeSQLUpdates
@@ -773,7 +774,15 @@ function Get-MissingWindowsUpdates
 									[void]$OSDirectories.Add("SQL 2016")
 								}
 
-                                $result=Get-WmiObject -ComputerName $($Computer) -Namespace ROOT\ccm\SoftwareUpdates\UpdatesStore -Query $qry
+								try {
+									#$result=Get-WmiObject -ComputerName $($Computer) -Namespace ROOT\ccm\SoftwareUpdates\UpdatesStore -Query $qry
+									$result=Get-WmiObject -ComputerName $env:COMPUTERNAME -Namespace ROOT\ccm\SoftwareUpdates\UpdatesStore -Query $qry -ErrorAction Stop
+								}
+								catch  [System.Management.ManagementException] {
+									Write-Warning "You should run this script with elevated rights..exiting!"
+									break
+								}
+                                
 								#$result
 								if($IncludeOfficeUpdates)
 								{
@@ -802,26 +811,7 @@ function Get-MissingWindowsUpdates
                                 #$result
                                 $output=$result | Where-Object {(-not ([System.String]::IsNullOrEmpty($_.FilePath))) -and ($_.ProductID -ne "28bc880e-0592-4cbf-8f95-c79b17911d5f")} | Select-Object PSComputerName,Article,Bulletin,ProductID,Title,UniqueId,FilePath
                                 #$output = $output -notmatch '%'
-                                
-                                if($SetLabeledUri)
-                                {
-                                    $searcher = (New-Object -TypeName System.DirectoryServices.DirectorySearcher)
-                                    $searcher.Filter    = "(&(objectCategory=computer)(CN=$($Computer)))"
-                                    [System.DirectoryServices.DirectoryEntry]$ADObject=([System.DirectoryServices.SearchResult]$searcher.FindOne()).GetDirectoryEntry()
-                                    if($ClearLabeledUriBefore)
-                                        {
-                                            $ADObject.labeledUri.Clear()
-                                            $ADObject.CommitChanges()
-                                        }
-                                    foreach($item in $output.FilePath)
-                                    {
-                                        [void]$ADObject.labeledUri.Add($item)
-                                    }
-
-                                    $ADObject.CommitChanges()
-
-                                }
-                                #$result
+ 
                                 $output
 						}
 						catch
@@ -854,8 +844,6 @@ function Get-MissingWindowsUpdates
 				$PowershellThread.AddParameter("Computer", $Computer) | out-null
                 $PowershellThread.AddParameter("Article", $Article) | out-null
                 $PowershellThread.AddParameter("Bulletin", $Bulletin) | out-null
-                $PowershellThread.AddParameter("SetLabeledUri", $SetLabeledUri) | out-null
-                $PowershellThread.AddParameter("ClearLabeledUriBefore", $ClearLabeledUriBefore) | out-null
                 $PowershellThread.AddParameter("IncludeOfficeUpdates", $IncludeOfficeUpdates) | out-null
                 $PowershellThread.AddParameter("IncludeSQLUpdates", $IncludeSQLUpdates) | out-null
                 
