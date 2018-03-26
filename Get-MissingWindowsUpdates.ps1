@@ -1,4 +1,7 @@
 ﻿<#
+version 1.1.0
+Added systeembeheer to Cc in function Start-ProcessingPatchFiles
+
 version 1.0.9
 filled catchblock around line 199
 
@@ -203,7 +206,7 @@ function Start-ProcessingPatchFiles
             if($SendNotification)
             {   
                 $mailbody = $mailresult | Select-Object PatchFile,Parameters,ExitCode,Message,IsDeployed,ProcessName | Out-HTMLDataTable -AsString
-                Send-MailMessage -From $env:COMPUTERNAME@antoniuszorggroep.nl -Subject $subject -SmtpServer "srv-mail02.antoniuszorggroep.local" -Cc "h.bouwens@antoniuszorggroep.nl" -To (Get-MailAdresBeheerder) -Body $mailbody -BodyAsHtml
+                Send-MailMessage -From $env:COMPUTERNAME@antoniuszorggroep.nl -Subject $subject -SmtpServer "srv-mail02.antoniuszorggroep.local" -Cc @("h.bouwens@antoniuszorggroep.nl","systeembeheer@antoniuszorggroep.nl") -To (Get-MailAdresBeheerder) -Body $mailbody -BodyAsHtml
             }
             Remove-Item -Path "\\srv-sccm02\sources$\Software\AZG\PS\Temp\*" -Force -Recurse
         }
