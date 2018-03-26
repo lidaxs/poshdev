@@ -1,4 +1,7 @@
 ﻿<#
+version 1.0.9
+filled catchblock around line 199
+
 version 1.0.8
 rewritten synopsis for Invoke-PatchProcess
 added -erroraction stop to get-wmiobject
@@ -191,7 +194,10 @@ function Start-ProcessingPatchFiles
                 }
             }
         }
-        catch{}
+		catch
+		{
+			Write-Warning -Message $Error[0].Exception.Message
+		}
         finally
         {
             if($SendNotification)
