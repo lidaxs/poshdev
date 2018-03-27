@@ -1,4 +1,9 @@
 ﻿<#
+version 1.1.1
+Fixed a bug in the multithreadingpart
+SetlabeledUri and ClearLabeledUriBefore were still in the scriptblock...thes are removed
+Added some verbosing to the Get-MissingWindowsUpdates
+
 version 1.1.0
 Added systeembeheer to Cc in function Start-ProcessingPatchFiles
 
@@ -42,7 +47,7 @@ bug solved with the switches -IncludeOfficeUpdates and -IncludeSQLUpdates
 
 wishlist
 mail report when ready...done
-on break send report of patches installed sofar...done
+on break send report of patches installed so far...done
 counter on processpatchfiles...done
 #> 
 
@@ -778,11 +783,23 @@ function Get-MissingWindowsUpdates
 									[void]$OSDirectories.Add("SQL 2008 R2")
 									[void]$OSDirectories.Add("SQL 2016")
 								}
-
+								#$result
+								if($IncludeOfficeUpdates)
+								{
+									$OfficeDirectory = "Office 2010 32-Bit"
+									Write-Verbose "Adding $OfficeDirectory"
+									[void]$OSDirectories.Add($OfficeDirectory)
+								}
+								if($IncludeSQLUpdates)
+								{
+									[void]$OSDirectories.Add("SQL 2008 R2")
+									[void]$OSDirectories.Add("SQL 2016")
+								}
+								
 								try
 								{
 									$result=Get-WmiObject -ComputerName $($Computer) -Namespace ROOT\ccm\SoftwareUpdates\UpdatesStore -Query $qry -ErrorAction Stop
-									#$result=Get-WmiObject -ComputerName $env:COMPUTERNAME -Namespace ROOT\ccm\SoftwareUpdates\UpdatesStore -Query $qry -ErrorAction Stop
+									#$global:result=Get-WmiObject -ComputerName $env:COMPUTERNAME -Namespace ROOT\ccm\SoftwareUpdates\UpdatesStore -Query $qry -ErrorAction Stop
 								}
 								catch [System.Management.ManagementException]
 								{
@@ -796,24 +813,16 @@ function Get-MissingWindowsUpdates
 									break
 								}
                                 
-								#$result
-								if($IncludeOfficeUpdates)
-								{
-									[void]$OSDirectories.Add("Office 2010 32-Bit")
-								}
-								if($IncludeSQLUpdates)
-								{
-									[void]$OSDirectories.Add("SQL 2008 R2")
-									[void]$OSDirectories.Add("SQL 2016")
-                                }
-                                
+                                Write-Verbose "All directories $OSDirectories"
                                 foreach($OSDirectory in $OSDirectories)
                                 {
+									Write-Verbose "Resolving path \\srv-sccm02\Packages$\Updates\$($OSDirectory)"
                                     foreach($item in $result)
                                     {
                                         $ppath=(Resolve-Path "\\srv-sccm02\Packages$\Updates\$($OSDirectory)\$($item.UniqueId)\*.cab","\\srv-sccm02\Packages$\Updates\$($OSDirectory)\$($item.UniqueId)\*.exe" -ErrorAction 0).ProviderPath
                                         if($ppath)
                                         {
+											Write-Verbose "Adding path $ppath to resultitem"
                                             Add-Member -InputObject $item -MemberType NoteProperty -Name FilePath -Value $ppath -Force
                                         }
                                     }
@@ -840,16 +849,6 @@ function Get-MissingWindowsUpdates
 
 			} # end if $PSCmdlet.ShouldProcess
 
-			####
-			# you can add other parameters and they should correspond with the parameters defined in the $ScriptBlock
-			#$PowershellThread.AddParameter("AnotherParameter", $AnotherParameter) | out-null
-			#param
-			#	(
-			#		[String]
-			#		$Computer,
-			#		$AnotherParameter
-			#	)
-			####
 
 			if ($MultiThread)
 			{
@@ -878,12 +877,12 @@ function Get-MissingWindowsUpdates
 			{
 				if ($PSCmdlet.MyInvocation.BoundParameters.ContainsKey('verbose'))
 				{
-					Invoke-Command -ScriptBlock $ScriptBlock -ArgumentList $Computer,$Article,$Bulletin,$SetLabeledUri,$ClearLabeledUriBefore,$IncludeOfficeUpdates,$IncludeSQLUpdates,$Verbose
+					Invoke-Command -ScriptBlock $ScriptBlock -ArgumentList $Computer,$Article,$Bulletin,$IncludeOfficeUpdates,$IncludeSQLUpdates,$Verbose
 				}
 				# for each parameter in the scriptblock add the same argument to the argumentlist
 				else
 				{
-					Invoke-Command -ScriptBlock $ScriptBlock -ArgumentList $Computer,$Article,$Bulletin,$SetLabeledUri,$ClearLabeledUriBefore,$IncludeOfficeUpdates,$IncludeSQLUpdates
+					Invoke-Command -ScriptBlock $ScriptBlock -ArgumentList $Computer,$Article,$Bulletin,$IncludeOfficeUpdates,$IncludeSQLUpdates
 				}
 			}
 
