@@ -1,4 +1,7 @@
 ﻿<#
+version 1.1.2
+created a fancier counter in function Start-ProcessingPatchFiles
+
 version 1.1.1
 Fixed a bug in the multithreadingpart
 SetlabeledUri and ClearLabeledUriBefore were still in the scriptblock...thes are removed
@@ -184,7 +187,7 @@ function Start-ProcessingPatchFiles
                 #endregion
                 
                 $counter+=1
-                Write-Host "Number of patches processed: $counter" -ForegroundColor Green
+                Write-Host "Number of patches processed: $counter of $($bucket.Count)" -ForegroundColor Green
                 if ($output.FreeVirtualMemoryPercentage -lt $MinFreeMemPercentage)
                     {
                         $memwarning="...Memory less than $MinFreeMemPercentage percent"
@@ -783,13 +786,14 @@ function Get-MissingWindowsUpdates
 									[void]$OSDirectories.Add("SQL 2008 R2")
 									[void]$OSDirectories.Add("SQL 2016")
 								}
-								#$result
+
 								if($IncludeOfficeUpdates)
 								{
 									$OfficeDirectory = "Office 2010 32-Bit"
 									Write-Verbose "Adding $OfficeDirectory"
 									[void]$OSDirectories.Add($OfficeDirectory)
 								}
+
 								if($IncludeSQLUpdates)
 								{
 									[void]$OSDirectories.Add("SQL 2008 R2")
