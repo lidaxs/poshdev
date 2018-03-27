@@ -1,4 +1,20 @@
-﻿# load assemblies...needed for ADS Class (credential validation)
+﻿<#
+    version 1.0.1
+    converted inputparameters $CredentialObject to type [System.Management.Automation.PSCredential]
+    changed path of classfiles
+    fixed double entries of pre and postcommands
+
+    version 1.0.0
+    Initial version
+
+    wishlist:
+    automatic removal of tasks after a given period of time
+    parametersets...done
+    more info in mail regarding installation/version etc.
+    different ordering in parameter...done because of the introduction of parametersets
+#>
+
+# load assemblies...needed for ADS Class (credential validation)
 [reflection.assembly]::LoadWithPartialName("System.DirectoryServices.AccountManagement") | Out-Null
 
 # create collection which holds all the created tasks
@@ -6,9 +22,9 @@
 
 
 # load classes
-. '\\srv-sccm02\sources$\Software\AZG\PS\dev\Class_ADS.ps1'
-. '\\srv-sccm02\sources$\Software\AZG\PS\dev\Class_Reg.ps1'
-. '\\srv-sccm02\sources$\Software\AZG\PS\dev\Class_Task.ps1'
+. '\\srv-sccm02\sources$\Software\AZG\PS\Class_ADS.ps1'
+. '\\srv-sccm02\sources$\Software\AZG\PS\Class_Reg.ps1'
+. '\\srv-sccm02\sources$\Software\AZG\PS\Class_Task.ps1'
 
 
 function Install-Application
@@ -60,58 +76,84 @@ function Install-Application
 	[CmdletBinding(SupportsShouldProcess=$true)]
 	[OutputType([System.Object])]
 	param(
-		[Parameter(Mandatory=$false,ValueFromPipeline=$true)]
+        [Parameter(Mandatory=$false,ValueFromPipeline=$true,ParameterSetName="Install")]
+        [Parameter(Mandatory=$false,ValueFromPipeline=$true,ParameterSetName="Remove")]
 		[Alias("CN","MachineName","Workstation","ServerName","HostName","ComputerName")]
 		[ValidateNotNullOrEmpty()]
 		[System.String[]]
-		$ClientName=@($env:COMPUTERNAME),
-
+        $ClientName=@($env:COMPUTERNAME),
+        
+        [Parameter(ParameterSetName="Install")]
+        [Parameter(ParameterSetName="Remove")]
         [System.String[]]
         $UseADGroups,
 
+        [Parameter(ParameterSetName="Install")]
         [Switch]
         $Install,
 
+        [Parameter(ParameterSetName="Remove")]
         [Switch]
         $Remove,
 
+        [Parameter(ParameterSetName="Remove")]
         [Switch]
         $RemoveRequired,
 
+        [Parameter(ParameterSetName="Install")]
+        [Parameter(ParameterSetName="Remove")]
         [Switch]
         $SendNotification,
 
+        [Parameter(ParameterSetName="Install")]
+        [Parameter(ParameterSetName="Remove")]
         [Switch]
         $RunAsSystem,
 
+        [Parameter(ParameterSetName="Install")]
+        [Parameter(ParameterSetName="Remove")]
 		[Switch]
 		$RunTaskAfterCreation,
 
+        [Parameter(ParameterSetName="Install")]
+        [Parameter(ParameterSetName="Remove")]
 		[Switch]
 		$RebootAfterCompletion,
 
+        [Parameter(ParameterSetName="Install")]
+        [Parameter(ParameterSetName="Remove")]
         $StartTime,
 
+        [Parameter(ParameterSetName="Install")]
+        [Parameter(ParameterSetName="Remove")]
         $EndTime,
 
+        [Parameter(ParameterSetName="Install")]
+        [Parameter(ParameterSetName="Remove")]
+        [System.Management.Automation.PSCredential]
         $CredentialObject,
 
-		# run the script multithreaded against multiple computers
+        # run the script multithreaded against multiple computers
+        [Parameter(ParameterSetName="Install")]
+        [Parameter(ParameterSetName="Remove")]
 		[Parameter(Mandatory=$false)]
 		[Switch]
 		$MultiThread,
 
-		# maximum number of threads that can run simultaniously
-		[Parameter(Mandatory=$false)]
+        # maximum number of threads that can run simultaniously
+        [Parameter(Mandatory=$false,ParameterSetName="Install")]
+        [Parameter(Mandatory=$false,ParameterSetName="Remove")]
 		[Int]
 		$MaxThreads=20,
 
 		# Maximum time(seconds) in which a thread must finish before a timeout occurs
-		[Parameter(Mandatory=$false)]
+        [Parameter(Mandatory=$false,ParameterSetName="Install")]
+        [Parameter(Mandatory=$false,ParameterSetName="Remove")]
 		[Int]
 		$MaxResultTime=20,
 
-		[Parameter(Mandatory=$false)]
+        [Parameter(Mandatory=$false,ParameterSetName="Install")]
+        [Parameter(Mandatory=$false,ParameterSetName="Remove")]
 		[Int]
 		$SleepTimer=1000
 	)
@@ -238,6 +280,7 @@ function Install-Application
 
                     $EndTime,
 
+                    [System.Management.Automation.PSCredential]
                     $CredentialObject
 
 				)
@@ -248,9 +291,9 @@ function Install-Application
 						try
 						{
                             # load classes
-                            . '\\srv-sccm02\sources$\Software\AZG\PS\dev\Class_ADS.ps1'
-                            . '\\srv-sccm02\sources$\Software\AZG\PS\dev\Class_Reg.ps1'
-                            . '\\srv-sccm02\sources$\Software\AZG\PS\dev\Class_Task.ps1'
+                            . '\\srv-sccm02\sources$\Software\AZG\PS\Class_ADS.ps1'
+                            . '\\srv-sccm02\sources$\Software\AZG\PS\Class_Reg.ps1'
+                            . '\\srv-sccm02\sources$\Software\AZG\PS\Class_Task.ps1'
 
 
                             #OS check...not xp
@@ -309,136 +352,146 @@ function Install-Application
                                 $adinfo.ReturnCommands()
                                 $global:pre=$adinfo.RequiredCommands
                                 $global:main=$adinfo.MainCommands
+                                $global:post=$adinfo.PostCommands
 
                                 if ($Install)
                                 {
                                     #process adinfo test installed and if not create taskactions
-                                    foreach ($item in $adinfo)
+                                    foreach ($item in $pre)
                                     {
-                                        #$item.ReturnCommands()
+                                        Write-Verbose "checking key $($item.RegistryKey)\$($item.RegistryValueName) for value $($item.RegistryValue)"
+                                        if ($($item.RegistryValue) -eq [Reg]::GetRegistryValue($Computer,'LocalMachine',$($item.RegistryKey),$($item.RegistryValueName)))
+                                        {
+                                            Write-Verbose "Applications for $group already installed"
+                                        }
+                                        else
+                                        {
+                                            foreach ($cmd in $item.InstallCommands)
+                                            {
+                                                Write-Verbose "Adding action $($cmd.Split(";")[1]) with arguments $($cmd.Split(";")[2]) in $($cmd.Split(";")[3])"
+                                                $taskobject.AddExecAction($($cmd.Split(";")[1]),$($cmd.Split(";")[2]),$($cmd.Split(";")[3]))
+                                            }
+                                        }
+                                    }
 
+                                    foreach($item in $main)
+                                    {
+                                        Write-Verbose "checking key $($item.RegistryKey)\$($item.RegistryValueName) for value $($item.RegistryValue)"
+                                        if($($item.RegistryValue) -eq [Reg]::GetRegistryValue($Computer,'LocalMachine',$($item.RegistryKey),$($item.RegistryValueName)))
+                                        {
+                                            Write-Verbose "Applications for $group already installed"
+                                        }
+                                        else
+                                        {
+                                            foreach ($cmd in $item.InstallCommands)
+                                            {
+                                                Write-Verbose "Adding action $($cmd.Split(";")[1]) with arguments $($cmd.Split(";")[2]) in $($cmd.Split(";")[3])"
+                                                $taskobject.AddExecAction($($cmd.Split(";")[1]),$($cmd.Split(";")[2]),$($cmd.Split(";")[3]))
+                                            }
+                                            # here reboot after completion
+                                        }
+                                    }
+                                    foreach($item in $post)
+                                    {
+                                        Write-Verbose "checking key $($item.RegistryKey)\$($item.RegistryValueName) for value $($item.RegistryValue)"
+                                        if($($item.RegistryValue) -eq [Reg]::GetRegistryValue($Computer,'LocalMachine',$($item.RegistryKey),$($item.RegistryValueName)))
+                                        {
+                                            Write-Verbose "Applications for $group already installed"
+                                        }
+                                        else
+                                        {
+                                            foreach ($cmd in $item.InstallCommands)
+                                            {
+                                                Write-Verbose "Adding action $($cmd.Split(";")[1]) with arguments $($cmd.Split(";")[2]) in $($cmd.Split(";")[3])"
+                                                $taskobject.AddExecAction($($cmd.Split(";")[1]),$($cmd.Split(";")[2]),$($cmd.Split(";")[3]))
+                                            }
+                                        }
+                                    }
+                                }
+                            }
 
+                            if ($Remove)
+                            {
+                                #process adinfo test installed and if not create taskactions
+                                foreach ($item in $adinfo)
+                                {
+                                    foreach($c in $main)
+                                    {
+                                        #Write-Host "entering remove sequence"
+                                        Write-Verbose "checking key $($c.RegistryKey)\$($c.RegistryValueName) for value $($c.RegistryValue)"
+                                        if($($c.RegistryValue) -eq [Reg]::GetRegistryValue($Computer,'LocalMachine',$($c.RegistryKey),$($c.RegistryValueName)))
+                                        {
+                                            foreach ($cmd in $main.RemoveCommands)
+                                            {
+                                                Write-Verbose "Adding action $($cmd.Split(";")[1]) with arguments $($cmd.Split(";")[2]) in $($cmd.Split(";")[3])"
+                                                $taskobject.AddExecAction($($cmd.Split(";")[1]),$($cmd.Split(";")[2]),$($cmd.Split(";")[3]))
+                                            }
+
+                                            Write-Verbose "Applications for $group installed getting removed"
+                                        # here reboot after completion
+                                        }
+
+                                        else
+                                        {
+
+                                        }
+                                    }
+                                    if($RemoveRequired)
+                                    {
                                         foreach($c in $pre)
                                         {
                                             Write-Verbose "checking key $($c.RegistryKey)\$($c.RegistryValueName) for value $($c.RegistryValue)"
                                             if($($c.RegistryValue) -eq [Reg]::GetRegistryValue($Computer,'LocalMachine',$($c.RegistryKey),$($c.RegistryValueName)))
                                             {
-                                                Write-Verbose "Applications for $group already installed"
-                                            }
-                                            else
-                                            {
-                                                foreach ($cmd in $pre.InstallCommands)
-                                                {
-                                                    Write-Verbose "Adding action $($cmd.Split(";")[1]) with arguments $($cmd.Split(";")[2]) in $($cmd.Split(";")[3])"
-                                                    $taskobject.AddExecAction($($cmd.Split(";")[1]),$($cmd.Split(";")[2]),$($cmd.Split(";")[3]))
-                                                }
-                                            }
-                                        }
-                                        foreach($c in $main)
-                                        {
-                                            Write-Verbose "checking key $($c.RegistryKey)\$($c.RegistryValueName) for value $($c.RegistryValue)"
-                                            if($($c.RegistryValue) -eq [Reg]::GetRegistryValue($Computer,'LocalMachine',$($c.RegistryKey),$($c.RegistryValueName)))
-                                            {
-                                                Write-Verbose "Applications for $group already installed"
-                                            }
-                                            else
-                                            {
-                                                foreach ($cmd in $main.InstallCommands)
-                                                {
-                                                    Write-Verbose "Adding action $($cmd.Split(";")[1]) with arguments $($cmd.Split(";")[2]) in $($cmd.Split(";")[3])"
-                                                    $taskobject.AddExecAction($($cmd.Split(";")[1]),$($cmd.Split(";")[2]),$($cmd.Split(";")[3]))
-                                                }
-                                                # here reboot after completion
-                                            }
-                                        }
-                                    }
-                                }
-
-                                if ($Remove)
-                                {
-                                    #process adinfo test installed and if not create taskactions
-                                    foreach ($item in $adinfo)
-                                    {
-                                        #$item.ReturnCommands()
-                                        #$global:pre=$item.RequiredCommands
-                                        #$global:main=$item.MainCommands
-                                        foreach($c in $main)
-                                        {
-                                            #Write-Host "entering remove sequence"
-                                            Write-Verbose "checking key $($c.RegistryKey)\$($c.RegistryValueName) for value $($c.RegistryValue)"
-                                            if($($c.RegistryValue) -eq [Reg]::GetRegistryValue($Computer,'LocalMachine',$($c.RegistryKey),$($c.RegistryValueName)))
-                                            {
-                                                foreach ($cmd in $main.RemoveCommands)
+                                                foreach ($cmd in $pre.RemoveCommands)
                                                 {
                                                     Write-Verbose "Adding action $($cmd.Split(";")[1]) with arguments $($cmd.Split(";")[2]) in $($cmd.Split(";")[3])"
                                                     $taskobject.AddExecAction($($cmd.Split(";")[1]),$($cmd.Split(";")[2]),$($cmd.Split(";")[3]))
                                                 }
 
                                                 Write-Verbose "Applications for $group installed getting removed"
-                                            # here reboot after completion
-                                            }
 
+                                            }
                                             else
                                             {
 
                                             }
                                         }
-                                        if($RemoveRequired)
-                                        {
-                                            foreach($c in $pre)
-                                            {
-                                                Write-Verbose "checking key $($c.RegistryKey)\$($c.RegistryValueName) for value $($c.RegistryValue)"
-                                                if($($c.RegistryValue) -eq [Reg]::GetRegistryValue($Computer,'LocalMachine',$($c.RegistryKey),$($c.RegistryValueName)))
-                                                {
-                                                    foreach ($cmd in $pre.RemoveCommands)
-                                                    {
-                                                        Write-Verbose "Adding action $($cmd.Split(";")[1]) with arguments $($cmd.Split(";")[2]) in $($cmd.Split(";")[3])"
-                                                        $taskobject.AddExecAction($($cmd.Split(";")[1]),$($cmd.Split(";")[2]),$($cmd.Split(";")[3]))
-                                                    }
-
-                                                    Write-Verbose "Applications for $group installed getting removed"
-
-                                                }
-                                                else
-                                                {
-
-                                                }
-                                            }
-                                        }
                                     }
-                                }
-
-                                # check notification/mail and add mailaction if mailaddress exists
-                                if($SendNotification)
-                                {
-                                    if( -not ($adinfo[0].Mail))
-                                    {
-                                        Write-Verbose "No mailaddress supplied in $group..setting it to default mail"
-                                        foreach ($item in $adinfo)
-                                        {
-                                            $item.Mail = "h.bouwens@antoniuszorggroep.nl"
-                                        }
-                                    }
-                                    else 
-                                    {
-                                        Write-verbose "$($item.Mail) added"
-                                        Write-Host $adinfo.mail.GetType().FullName
-                                    }
-                                    if(-not($RunAsSystem))
-                                    {
-                                        $taskobject.AddMailAction("srv-mail02.antoniuszorggroep.local",$adinfo.mail,"h.bouwens@antoniuszorggroep.nl","$($computer)@antoniuszorggroep.nl","Installation $group","Installation of applications using $group finished")
-                                    }
-                                    else
-                                    {
-                                        Write-Verbose "Mail action not added since the `"NT AUTHORITY\SYSTEM`" user is not allowed to send mail"
-                                    }
-                                }
-
-                                if($RebootAfterCompletion)
-                                {
-                                    $taskobject.AddExecAction("C:\Windows\system32\shutdown.exe","-r -t 0 -f",$env:SystemRoot)
                                 }
                             }
+
+                            # check notification/mail and add mailaction if mailaddress exists
+                            if($SendNotification)
+                                {
+                                if( -not ($adinfo[0].Mail))
+                                {
+                                    Write-Verbose "No mailaddress supplied in $group..setting it to default mail"
+                                    foreach ($item in $adinfo)
+                                    {
+                                        $item.Mail = "h.bouwens@antoniuszorggroep.nl"
+                                    }
+                                }
+                                else 
+                                {
+                                    Write-verbose "$($item.Mail) added"
+                                    Write-Host $adinfo.mail.GetType().FullName
+                                }
+                                if(-not($RunAsSystem))
+                                {
+                                    $taskobject.AddMailAction("srv-mail02.antoniuszorggroep.local",$adinfo.mail,"h.bouwens@antoniuszorggroep.nl","$($computer)@antoniuszorggroep.nl","Installation $group","Installation of applications using $group finished")
+                                }
+                                else
+                                {
+                                    Write-Verbose "Mail action not added since the `"NT AUTHORITY\SYSTEM`" user is not allowed to send mail"
+                                }
+                            }
+
+                            if($RebootAfterCompletion)
+                            {
+                                $taskobject.AddExecAction("C:\Windows\system32\shutdown.exe","-r -t 0 -f",$env:SystemRoot)
+                            }
+                            
 
                             # registertask
                             if ($taskobject.TaskObject.Actions.count -gt 0)
