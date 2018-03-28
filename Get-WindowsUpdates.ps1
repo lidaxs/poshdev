@@ -1,4 +1,7 @@
 <#
+version 1.1.5
+Article parameter multivalued like 29334545,12335211,24556222
+
 version 1.1.4
 added counter to mailsubject and operation to mailbody 
 
@@ -267,10 +270,10 @@ function Start-ProcessingPatchFiles
         {
             if($SendNotification)
             {
-                $subject += "($($counter) updates $($Operation))"
+                $subject += "$($Operation) ($($counter) updates)"
                 $mailbody = $mailresult | Select-Object PatchFile,Parameters,ExitCode,Message,IsDeployed,ProcessName,Operation | Out-HTMLDataTable -AsString
-                #Send-MailMessage -From $env:COMPUTERNAME@antoniuszorggroep.nl -Subject $subject -SmtpServer "srv-mail02.antoniuszorggroep.local" -Cc @("h.bouwens@antoniuszorggroep.nl","systeembeheer@antoniuszorggroep.nl") -To (Get-MailAdresBeheerder) -Body $mailbody -BodyAsHtml
-                Send-MailMessage -From $env:COMPUTERNAME@antoniuszorggroep.nl -Subject $subject -SmtpServer "srv-mail02.antoniuszorggroep.local" -Cc @("h.bouwens@antoniuszorggroep.nl") -To (Get-MailAdresBeheerder) -Body $mailbody -BodyAsHtml
+                Send-MailMessage -From $env:COMPUTERNAME@antoniuszorggroep.nl -Subject $subject -SmtpServer "srv-mail02.antoniuszorggroep.local" -Cc @("h.bouwens@antoniuszorggroep.nl","systeembeheer@antoniuszorggroep.nl") -To (Get-MailAdresBeheerder) -Body $mailbody -BodyAsHtml
+                #Send-MailMessage -From $env:COMPUTERNAME@antoniuszorggroep.nl -Subject $subject -SmtpServer "srv-mail02.antoniuszorggroep.local" -Cc @("h.bouwens@antoniuszorggroep.nl") -To (Get-MailAdresBeheerder) -Body $mailbody -BodyAsHtml
             }
             Remove-Item -Path "\\srv-sccm02\sources$\Software\AZG\PS\Temp\*" -Force -Recurse
         }
@@ -707,7 +710,7 @@ function Get-WindowsUpdates
         [ValidateSet('Missing','Installed')]
         $Status,
 
-        [String]$Article,
+        [String[]]$Articles,
 
         [String]$Bulletin,
 
@@ -802,7 +805,7 @@ function Get-WindowsUpdates
 
                     [String]$Status,
 
-                    [String]$Article,
+                    [String[]]$Articles,
 
                     [String]$Bulletin,
 
@@ -842,10 +845,16 @@ function Get-WindowsUpdates
                                 #$article.Replace("KB","")
                                 #$qry="Select * from CCM_UpdateStatus WHERE Status = 'Missing' And Article Like '$Article' And Bulletin LIKE '$Bulletin'"
 								$global:qry="Select * from CCM_UpdateStatus WHERE Status = '$($Status)'"
-								if($Article)
+								if($Articles)
 								{
-									$Article = $Article.Replace("KB","")
-									$qry="$qry And Article Like '%$Article%'"
+                                    #remove KB from article-string...just in case someone entered them on the commandline
+                                    foreach($Article in $Articles)
+                                    {
+                                        $Article = $Article.Replace("KB","")
+                                    }
+                                    $tempqry=$Articles -join ("%`' or Article Like `'%")
+                                    #("Article Like `'%$tempqry%`'")
+									$qry="$qry And (Article Like `'%$tempqry%`')"
 									[void]$OSDirectories.Add("Office 2010 32-Bit")
 									[void]$OSDirectories.Add("SQL 2008 R2")
 									[void]$OSDirectories.Add("SQL 2016")
@@ -930,7 +939,7 @@ function Get-WindowsUpdates
 				$PowershellThread = [powershell]::Create().AddScript($ScriptBlock)
                 $PowershellThread.AddParameter("Computer", $Computer) | out-null
                 $PowershellThread.AddParameter("Status", $Status) | out-null
-                $PowershellThread.AddParameter("Article", $Article) | out-null
+                $PowershellThread.AddParameter("Articles", $Articles) | out-null
                 $PowershellThread.AddParameter("Bulletin", $Bulletin) | out-null
                 $PowershellThread.AddParameter("IncludeOfficeUpdates", $IncludeOfficeUpdates) | out-null
                 $PowershellThread.AddParameter("IncludeSQLUpdates", $IncludeSQLUpdates) | out-null
@@ -953,12 +962,12 @@ function Get-WindowsUpdates
 			{
 				if ($PSCmdlet.MyInvocation.BoundParameters.ContainsKey('verbose'))
 				{
-					Invoke-Command -ScriptBlock $ScriptBlock -ArgumentList $Computer,$Status,$Article,$Bulletin,$IncludeOfficeUpdates,$IncludeSQLUpdates,$Verbose
+					Invoke-Command -ScriptBlock $ScriptBlock -ArgumentList $Computer,$Status,$Articles,$Bulletin,$IncludeOfficeUpdates,$IncludeSQLUpdates,$Verbose
 				}
 				# for each parameter in the scriptblock add the same argument to the argumentlist
 				else
 				{
-					Invoke-Command -ScriptBlock $ScriptBlock -ArgumentList $Computer,$Status,$Article,$Bulletin,$IncludeOfficeUpdates,$IncludeSQLUpdates
+					Invoke-Command -ScriptBlock $ScriptBlock -ArgumentList $Computer,$Status,$Articles,$Bulletin,$IncludeOfficeUpdates,$IncludeSQLUpdates
 				}
 			}
 
