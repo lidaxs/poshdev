@@ -199,9 +199,11 @@ function Start-ProcessingPatchFiles
                             $message="Installed $msp (exitcode $($processinfo[1]))"
                         }
                     }
+
                     elseif($processinfo[1] -eq 3){
                         $message="Installation of `'$File`' failed (exitcode $($processinfo[1]))....folderpath not found"
                     }
+
                     elseif($processinfo[1] -eq -2145124329){
                         $message="Installation of `'$File`' failed (exitcode $($processinfo[1]))....Operation was not performed because there are no applicable updates."
                     }
@@ -215,14 +217,14 @@ function Start-ProcessingPatchFiles
                     
                 #endregion
                 
-                #region Updating labeledUri in AD
-                # creating custom output object
-                $output = New-Object PSObject | Select-Object ProcessName,PatchFile,Parameters,ExitCode,Message,FreeVirtualMemoryPercentage,IsDeployed
-                $output.ProcessName=$procname
-                $output.PatchFile="`'$File`'"
-                $output.Parameters=$patch_arguments | Out-String
-                $output.ExitCode=$processinfo[1]
-                $output.Message=$message
+                #region creating custom output object
+                $output             = New-Object PSObject | Select-Object ProcessName,PatchFile,Parameters,ExitCode,Message,FreeVirtualMemoryPercentage,IsDeployed,Operation
+                $output.ProcessName = $procname
+                $output.PatchFile   = "`'$File`'"
+                $output.Parameters  = $patch_arguments | Out-String
+                $output.ExitCode    = $processinfo[1]
+                $output.Message     = $message
+                $output.Operation   = $Operation
                 $output.FreeVirtualMemoryPercentage=Get-Memory | Select-Object -ExpandProperty FreeVirtualPercentage
 				if(($output.exitcode -eq 0) -or ($output.exitcode -eq 3010)-or ($output.exitcode -eq 1642) -or ($output.exitcode -eq 1641) -or ($output.ExitCode -eq -2145124329))
 				{
@@ -262,7 +264,8 @@ function Start-ProcessingPatchFiles
             if($SendNotification)
             {   
                 $mailbody = $mailresult | Select-Object PatchFile,Parameters,ExitCode,Message,IsDeployed,ProcessName | Out-HTMLDataTable -AsString
-                Send-MailMessage -From $env:COMPUTERNAME@antoniuszorggroep.nl -Subject $subject -SmtpServer "srv-mail02.antoniuszorggroep.local" -Cc @("h.bouwens@antoniuszorggroep.nl","systeembeheer@antoniuszorggroep.nl") -To (Get-MailAdresBeheerder) -Body $mailbody -BodyAsHtml
+                #Send-MailMessage -From $env:COMPUTERNAME@antoniuszorggroep.nl -Subject $subject -SmtpServer "srv-mail02.antoniuszorggroep.local" -Cc @("h.bouwens@antoniuszorggroep.nl","systeembeheer@antoniuszorggroep.nl") -To (Get-MailAdresBeheerder) -Body $mailbody -BodyAsHtml
+                Send-MailMessage -From $env:COMPUTERNAME@antoniuszorggroep.nl -Subject $subject -SmtpServer "srv-mail02.antoniuszorggroep.local" -Cc @("h.bouwens@antoniuszorggroep.nl") -To (Get-MailAdresBeheerder) -Body $mailbody -BodyAsHtml
             }
             Remove-Item -Path "\\srv-sccm02\sources$\Software\AZG\PS\Temp\*" -Force -Recurse
         }
@@ -862,7 +865,7 @@ function Get-WindowsUpdates
 								}
 								catch [System.Management.ManagementException]
 								{
-									Write-Warning "You should run this script with elevated rights..exiting!"
+									Write-Warning "$($Error[0].Exception)"
 									break
 								}
 								catch
