@@ -1,4 +1,7 @@
 <#
+version 1.1.4
+added counter to mailsubject and operation to mailbody 
+
 initial version 1.1.3
 ported from Get-MissingWindowsUpdates script to make it more generic
 implemented switch Status with two options
@@ -57,7 +60,8 @@ wishlist
 mail report when ready...done
 on break send report of patches installed so far...done
 counter on processpatchfiles...done
-make more generic(filter on status)(remove patchfiles)
+make more generic(filter on status)(remove patchfiles)...done
+make Article parameter multivalued like 29334545,12335211,24556222
 #> 
 
 function Start-ProcessingPatchFiles
@@ -171,10 +175,10 @@ function Start-ProcessingPatchFiles
                     $processinfo=Invoke-PatchProcess -ProcessName $procname -Argument $patch_arguments
                     #if($exitcode.GetType().Name -eq "Object[]"){Write-Host "Object";$exitcode=$exitcode | Select -expa ExitCode}
                     if($processinfo[1] -eq 0){
-                        $message="`'$File`' succesfully installed!"
+                        $message="`'$File`' succesfully processed!"
                     }
                     elseif(($processinfo[1] -eq 3010) -or ($processinfo -eq 1641)){
-                        $message="Installation of `'$File`' succesfully finished but reboot is required."
+                        $message="Installation of `'$File`' succesfully processed but reboot is required."
                     }
                     elseif($processinfo[1] -eq 1642){
                         $message="Product to patch not found...perhaps another version installed"
@@ -262,8 +266,9 @@ function Start-ProcessingPatchFiles
         finally
         {
             if($SendNotification)
-            {   
-                $mailbody = $mailresult | Select-Object PatchFile,Parameters,ExitCode,Message,IsDeployed,ProcessName | Out-HTMLDataTable -AsString
+            {
+                $subject += "($($counter) updates $($Operation))"
+                $mailbody = $mailresult | Select-Object PatchFile,Parameters,ExitCode,Message,IsDeployed,ProcessName,Operation | Out-HTMLDataTable -AsString
                 #Send-MailMessage -From $env:COMPUTERNAME@antoniuszorggroep.nl -Subject $subject -SmtpServer "srv-mail02.antoniuszorggroep.local" -Cc @("h.bouwens@antoniuszorggroep.nl","systeembeheer@antoniuszorggroep.nl") -To (Get-MailAdresBeheerder) -Body $mailbody -BodyAsHtml
                 Send-MailMessage -From $env:COMPUTERNAME@antoniuszorggroep.nl -Subject $subject -SmtpServer "srv-mail02.antoniuszorggroep.local" -Cc @("h.bouwens@antoniuszorggroep.nl") -To (Get-MailAdresBeheerder) -Body $mailbody -BodyAsHtml
             }
@@ -636,6 +641,14 @@ function Get-WindowsUpdates
 		.PARAMETER  ClientName
 			The ClientName(s) on which to operate.
 			This can be a string or collection
+        .Parameter Status
+            Filter on Installed or Missing updates
+
+        .Parameter Article
+            The kb article(s) to query
+
+        .Parameter Bulletin
+            The bulletin to query
 
 		.PARAMETER MultiThread
 			Enable multithreading
