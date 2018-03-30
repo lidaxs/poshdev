@@ -72,7 +72,7 @@ function Get-NetworkStatistics {
 	    Get-NetworkStatistics | Format-Table
 
     .EXAMPLE
-	    Get-NetworkStatistics iexplore -computername k-it-thin-02 -ShowHostNames | Format-Table
+	    Get-NetworkStatistics iexplore -computername srv-g2-01 -ShowHostNames | Format-Table
 
     .EXAMPLE
 	    Get-NetworkStatistics -ProcessName md* -Protocol tcp
