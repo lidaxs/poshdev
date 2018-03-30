@@ -1,7 +1,20 @@
 function Test-Online
 {
 <#
-    verion 1.0.0 initial staging
+    version 1.0.3
+    When used in pipeline only returns $true instead of pscutom object
+
+    version 1.0.2
+    changed ipaddress -like to a regex pattern
+
+    version 1.0.1
+    replaced StatusCode with PrimaryAddressResolutionStatus
+    Changed parameter -Filter to -Query and removed -Class parameter
+
+    version 1.0.0 initial staging
+
+    wishlist
+    Only return true when using the pipeline..done
 #>
     param
     (
@@ -16,8 +29,7 @@ function Test-Online
     begin
     {
         # use this to collect computer names that were sent via pipeline
-        [Collections.ArrayList]$bucket = @()
-    
+        [Collections.ArrayList]$bucket = $input
         # hash table with error code to text translation
         $StatusCode_ReturnValue =
         @{
@@ -56,24 +68,29 @@ function Test-Online
                 # take status code and use it as index into
                 # the hash table with friendly names
                 # make sure the key is of same data type (int)
-                $StatusCode_ReturnValue[([int]$_.StatusCode)]
+                $StatusCode_ReturnValue[([int]$_.PrimaryAddressResolutionStatus)]
             }
         }
  
         # calculated property that returns $true when status -eq 0
         $IsOnline = @{
             Name = 'Online'
-            Expression = { $_.StatusCode -eq 0 }
+            Expression = { $_.PrimaryAddressResolutionStatus -eq 0 }
         }
  
         # do DNS resolution when system responds to ping
+        $ippattern = "\A(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\z"
         $DNSName = @{
             Name = 'DNSName'
-            Expression = { if ($_.StatusCode -eq 0) { 
-                    if ($_.Address -like '*.*.*.*') 
-                    { [Net.DNS]::GetHostByAddress($_.Address).HostName  } 
-                    else  
-                    { [Net.DNS]::GetHostByName($_.Address).HostName  } 
+            Expression = { if ($_.PrimaryAddressResolutionStatus -eq 0) { 
+                    if ([regex]::IsMatch($_.Address,$ippattern))
+                    {
+                         [Net.DNS]::GetHostByAddress($_.Address).HostName
+                    } 
+                    else
+                    {
+                        [Net.DNS]::GetHostByName($_.Address).HostName
+                    } 
                 }
             }
         }
@@ -81,22 +98,20 @@ function Test-Online
     
     process
     {
-        # add each computer name to the bucket
-        # we either receive a string array via parameter, or 
-        # the process block runs multiple times when computer
-        # names are piped
-        $ComputerName | ForEach-Object {
-            $null = $bucket.Add($_)
+        if($PSCmdlet.MyInvocation.ExpectingInput){
+            if ((Get-WmiObject -Query "Select * From Win32_PingStatus Where (Address='$_') and timeout=$TimeoutMillisec").PrimaryAddressResolutionStatus -eq 0) {
+                return $true
+            }
+        }
+        else {
+            $query = $ComputerName -join "' or Address='"
+            Get-WmiObject -Query "Select * From Win32_PingStatus Where (Address='$query') and timeout=$TimeoutMillisec" |
+            Select-Object -Property Address, $IsOnline, $DNSName, $statusFriendlyText
         }
     }
     
     end
     {
-        # convert list of computers into a WMI query string
-        $query = $bucket -join "' or Address='"
-        
-        Get-WmiObject -Class Win32_PingStatus -Filter "(Address='$query') and timeout=$TimeoutMillisec" |
-        Select-Object -Property Address, $IsOnline, $DNSName, $statusFriendlyText
     }
     
 } 
