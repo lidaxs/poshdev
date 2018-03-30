@@ -1,6 +1,10 @@
 function Test-Online
 {
 <#
+    version 1.0.4
+    replaced PrimaryAddressResolutionStatus with StatusCode
+    added verbosing in pipeline output
+
     version 1.0.3
     When used in pipeline only returns $true instead of pscutom object
 
@@ -8,7 +12,7 @@ function Test-Online
     changed ipaddress -like to a regex pattern
 
     version 1.0.1
-    replaced StatusCode with PrimaryAddressResolutionStatus
+    replaced StatusCode with StatusCode
     Changed parameter -Filter to -Query and removed -Class parameter
 
     version 1.0.0 initial staging
@@ -68,23 +72,24 @@ function Test-Online
                 # take status code and use it as index into
                 # the hash table with friendly names
                 # make sure the key is of same data type (int)
-                $StatusCode_ReturnValue[([int]$_.PrimaryAddressResolutionStatus)]
+                $StatusCode_ReturnValue[([int]$_.StatusCode)]
             }
         }
  
         # calculated property that returns $true when status -eq 0
         $IsOnline = @{
             Name = 'Online'
-            Expression = { $_.PrimaryAddressResolutionStatus -eq 0 }
+            Expression = { $_.StatusCode -eq 0 }
         }
  
         # do DNS resolution when system responds to ping
         $ippattern = "\A(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\z"
         $DNSName = @{
             Name = 'DNSName'
-            Expression = { if ($_.PrimaryAddressResolutionStatus -eq 0) { 
-                    if ([regex]::IsMatch($_.Address,$ippattern))
-                    {
+            Expression = { if ($_.StatusCode -eq 0) { 
+                    if ([regex]::IsMatch($($_.Address),$ippattern))
+                    {                    
+                        Write-Host "resolving $($_.Address)"
                          [Net.DNS]::GetHostByAddress($_.Address).HostName
                     } 
                     else
@@ -99,8 +104,11 @@ function Test-Online
     process
     {
         if($PSCmdlet.MyInvocation.ExpectingInput){
-            if ((Get-WmiObject -Query "Select * From Win32_PingStatus Where (Address='$_') and timeout=$TimeoutMillisec").PrimaryAddressResolutionStatus -eq 0) {
+            if ((Get-WmiObject -Query "Select * From Win32_PingStatus Where (Address='$_') and timeout=$TimeoutMillisec").StatusCode -eq 0) {
                 return $true
+            }
+            else {
+                Write-Verbose "$($_) not online!"
             }
         }
         else {
