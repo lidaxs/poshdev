@@ -1,18 +1,15 @@
-﻿<#
+﻿Add-Type -AssemblyName System.DirectoryServices.AccountManagement
+
+<#
     version 1.0.1
     test validatcredentials
 #>
-#Add-Type -AssemblyName System.DirectoryServices.AccountManagement
-#[reflection.assembly]::LoadFile("C:\WINDOWS\Microsoft.Net\assembly\GAC_MSIL\System.DirectoryServices.AccountManagement\v4.0_4.0.0.0__b77a5c561934e089\System.DirectoryServices.AccountManagement.dll")
-#$assembly="System.DirectoryServices.AccountManagement"
-#[System.Reflection.Assembly]::LoadWithPartialName($assembly)
 
-#todo
-<#
+<# wishlist
     properties for required and post install groups
     ordering of collections
     adapt constructor to load commands if schemaclassname is group
-    validatecredentials test
+    validatecredentials test...done
 #>
 
 
@@ -316,19 +313,11 @@ ADS([String]$ObjectCategory,[String]$ObjectName) : base() {
     }
 
 #ValidateCredentials
-    ValidateCredentials([System.Management.Automation.PSCredential]$CredentialObject)
+    [System.Boolean]ValidateCredentials([System.Management.Automation.PSCredential]$CredentialObject)
     {
-        # return true if credentials are valid
-        #[System.Reflection.Assembly]::LoadWithPartialName("System.DirectoryServices.AccountManagement")
-        #[System.Reflection.Assembly]::LoadWithPartialName("System.DirectoryServices.AccountManagement.PrincipalContext")
-        #[System.Reflection.Assembly]::LoadWithPartialName("System.DirectoryServices.AccountManagement.ContextType")
-        Add-Type -AssemblyName System.DirectoryServices.AccountManagement
-        
-        $contexttype = [System.DirectoryServices.AccountManagement.ContextType]::Domain
+        $contexttype = New-Object [System.DirectoryServices.AccountManagement.ContextType]::Domain
         $principalcontext = New-Object -TypeName System.DirectoryServices.AccountManagement.PrincipalContext -ArgumentList $contexttype, "antoniuszorggroep.local", "DC=antoniuszorggroep,DC=local"
-        #[reflection.assembly]::LoadFile("C:\WINDOWS\Microsoft.Net\assembly\GAC_MSIL\System.DirectoryServices.AccountManagement\v4.0_4.0.0.0__b77a5c561934e089\System.DirectoryServices.AccountManagement.dll")
-        #$principal=[System.DirectoryServices.AccountManagement.PrincipalContext]::new([System.DirectoryServices.AccountManagement.ContextType]::Domain)
-        $principalcontext.ValidateCredentials($CredentialObject.GetNetworkCredential().UserName,$CredentialObject.GetNetworkCredential().Password)
+        return $principalcontext.ValidateCredentials($CredentialObject.GetNetworkCredential().UserName,$CredentialObject.GetNetworkCredential().Password)
     }
 
 #ReturnCommands
@@ -555,16 +544,9 @@ ADS([String]$ObjectCategory,[String]$ObjectName) : base() {
 
     [Boolean] static ValidateUserCredentials([System.Management.Automation.PSCredential]$CredentialObject)
     {
-        # return true if creadentials are valid
-        [System.Reflection.Assembly]::LoadWithPartialName("System.DirectoryServices.AccountManagement")
-        [System.Reflection.Assembly]::LoadWithPartialName("System.DirectoryServices.AccountManagement.PrincipalContext")
-        [System.Reflection.Assembly]::LoadWithPartialName("SSystem.DirectoryServices.AccountManagement.ContextType")
-        #Add-Type -AssemblyName System.DirectoryServices.AccountManagement
-        #[reflection.assembly]::LoadFile("C:\WINDOWS\Microsoft.Net\assembly\GAC_MSIL\System.DirectoryServices.AccountManagement\v4.0_4.0.0.0__b77a5c561934e089\System.DirectoryServices.AccountManagement.dll")
-        $principal=[System.DirectoryServices.AccountManagement.PrincipalContext]::new([System.DirectoryServices.AccountManagement.ContextType]::Domain)
-        #Write-Host $CredentialObject.GetNetworkCredential().UserName
-        #Write-Host $CredentialObject.GetNetworkCredential().Password
-        return $principal.ValidateCredentials($CredentialObject.GetNetworkCredential().UserName,$CredentialObject.GetNetworkCredential().Password)
+        $contexttype = New-Object [System.DirectoryServices.AccountManagement.ContextType]::Domain
+        $principalcontext = New-Object -TypeName System.DirectoryServices.AccountManagement.PrincipalContext -ArgumentList $contexttype, "antoniuszorggroep.local", "DC=antoniuszorggroep,DC=local"
+        return $principalcontext.ValidateCredentials($CredentialObject.GetNetworkCredential().UserName,$CredentialObject.GetNetworkCredential().Password)
     }
 
 #ReturnCommands
@@ -573,8 +555,8 @@ ADS([String]$ObjectCategory,[String]$ObjectName) : base() {
 
         $allcmds = New-Object PSCustomObject | Select-Object Name,InstallCommands,RemoveCommands,RegistryKey,RegistryValueName,RegistryValue,Mail
         $objGroup     = [ADS]::GetGroupObject($GroupName)
-        $required     = $objGroup.extensionAttribute14
-        $post         = $objGroup.extensionAttribute15
+        #$required     = $objGroup.extensionAttribute14
+        #$post         = $objGroup.extensionAttribute15
         $installcmds  = $objGroup.labeledUri
         $removecmds   = $objGroup.wbemPath
         $regkey       = $objGroup.extensionAttribute1
@@ -600,7 +582,3 @@ ADS([String]$ObjectCategory,[String]$ObjectName) : base() {
 #endregion static
 
 }
-
-
-#$test=[ADS]::New("L-APP-RESVDX_x86")
-
