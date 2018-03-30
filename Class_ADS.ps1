@@ -1,4 +1,8 @@
-﻿#Add-Type -AssemblyName System.DirectoryServices.AccountManagement
+﻿<#
+    version 1.0.1
+    test validatcredentials
+#>
+#Add-Type -AssemblyName System.DirectoryServices.AccountManagement
 #[reflection.assembly]::LoadFile("C:\WINDOWS\Microsoft.Net\assembly\GAC_MSIL\System.DirectoryServices.AccountManagement\v4.0_4.0.0.0__b77a5c561934e089\System.DirectoryServices.AccountManagement.dll")
 #$assembly="System.DirectoryServices.AccountManagement"
 #[System.Reflection.Assembly]::LoadWithPartialName($assembly)
@@ -8,6 +12,7 @@
     properties for required and post install groups
     ordering of collections
     adapt constructor to load commands if schemaclassname is group
+    validatecredentials test
 #>
 
 
@@ -311,15 +316,19 @@ ADS([String]$ObjectCategory,[String]$ObjectName) : base() {
     }
 
 #ValidateCredentials
-    [Boolean] ValidateCredentials($CredentialObject)
+    ValidateCredentials([System.Management.Automation.PSCredential]$CredentialObject)
     {
-        # return true if creadentials are valid
+        # return true if credentials are valid
         #[System.Reflection.Assembly]::LoadWithPartialName("System.DirectoryServices.AccountManagement")
         #[System.Reflection.Assembly]::LoadWithPartialName("System.DirectoryServices.AccountManagement.PrincipalContext")
-        #Add-Type -AssemblyName System.DirectoryServices.AccountManagement
+        #[System.Reflection.Assembly]::LoadWithPartialName("System.DirectoryServices.AccountManagement.ContextType")
+        Add-Type -AssemblyName System.DirectoryServices.AccountManagement
+        
+        $contexttype = [System.DirectoryServices.AccountManagement.ContextType]::Domain
+        $principalcontext = New-Object -TypeName System.DirectoryServices.AccountManagement.PrincipalContext -ArgumentList $contexttype, "antoniuszorggroep.local", "DC=antoniuszorggroep,DC=local"
         #[reflection.assembly]::LoadFile("C:\WINDOWS\Microsoft.Net\assembly\GAC_MSIL\System.DirectoryServices.AccountManagement\v4.0_4.0.0.0__b77a5c561934e089\System.DirectoryServices.AccountManagement.dll")
-        $principal=[System.DirectoryServices.AccountManagement.PrincipalContext]::new([System.DirectoryServices.AccountManagement.ContextType]::Domain)
-        return $principal.ValidateCredentials($CredentialObject.GetNetworkCredential().UserName,$CredentialObject.GetNetworkCredential().Password)
+        #$principal=[System.DirectoryServices.AccountManagement.PrincipalContext]::new([System.DirectoryServices.AccountManagement.ContextType]::Domain)
+        $principalcontext.ValidateCredentials($CredentialObject.GetNetworkCredential().UserName,$CredentialObject.GetNetworkCredential().Password)
     }
 
 #ReturnCommands
@@ -547,9 +556,9 @@ ADS([String]$ObjectCategory,[String]$ObjectName) : base() {
     [Boolean] static ValidateUserCredentials([System.Management.Automation.PSCredential]$CredentialObject)
     {
         # return true if creadentials are valid
-        #[System.Reflection.Assembly]::LoadWithPartialName("System.DirectoryServices.AccountManagement")
-        #[System.Reflection.Assembly]::LoadWithPartialName("System.DirectoryServices.AccountManagement.PrincipalContext")
-        #[System.Reflection.Assembly]::LoadWithPartialName("SSystem.DirectoryServices.AccountManagement.ContextType")
+        [System.Reflection.Assembly]::LoadWithPartialName("System.DirectoryServices.AccountManagement")
+        [System.Reflection.Assembly]::LoadWithPartialName("System.DirectoryServices.AccountManagement.PrincipalContext")
+        [System.Reflection.Assembly]::LoadWithPartialName("SSystem.DirectoryServices.AccountManagement.ContextType")
         #Add-Type -AssemblyName System.DirectoryServices.AccountManagement
         #[reflection.assembly]::LoadFile("C:\WINDOWS\Microsoft.Net\assembly\GAC_MSIL\System.DirectoryServices.AccountManagement\v4.0_4.0.0.0__b77a5c561934e089\System.DirectoryServices.AccountManagement.dll")
         $principal=[System.DirectoryServices.AccountManagement.PrincipalContext]::new([System.DirectoryServices.AccountManagement.ContextType]::Domain)
