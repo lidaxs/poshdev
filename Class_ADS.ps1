@@ -2,7 +2,7 @@
 
 <#
     version 1.0.1
-    test validatcredentials
+    test validatecredentials
 #>
 
 <# wishlist
