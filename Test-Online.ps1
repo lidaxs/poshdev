@@ -1,4 +1,7 @@
 <#
+    version 1.0.6
+    Renamed function scan-port to test-ports
+
     version 1.0.5
     added function Test-Port
     added function Scan-Port
@@ -189,7 +192,8 @@ function Test-Port
 }
 
 
-function Scan-Port {
+function Test-Ports
+{
 	[CmdletBinding()]
 	[OutputType([System.Object])]
 	param(
