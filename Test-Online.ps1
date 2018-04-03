@@ -1,12 +1,15 @@
-function Test-Online
-{
 <#
+    version 1.0.5
+    added function Test-Port
+    added function Scan-Port
+    with scanport capabilities
+
     version 1.0.4
     replaced PrimaryAddressResolutionStatus with StatusCode
     added verbosing in pipeline output
 
     version 1.0.3
-    When used in pipeline only returns $true instead of pscutom object
+    When used in pipeline only returns $true instead of pscustom object
 
     version 1.0.2
     changed ipaddress -like to a regex pattern
@@ -20,6 +23,9 @@ function Test-Online
     wishlist
     Only return true when using the pipeline..done
 #>
+
+function Test-Online
+{
     param
     (
         # make parameter pipeline-aware
@@ -123,3 +129,204 @@ function Test-Online
     }
     
 } 
+
+function Test-Port
+{
+        # make parameter pipeline-aware
+    param(
+		[Parameter(Mandatory=$false, ValueFromPipeline=$true, ValueFromPipelineByPropertyName=$true)]
+		[Alias("CN","Name","PSComputerName","MachineName","Workstation","ServerName","HostName","ComputerName")]
+		[ValidateNotNullOrEmpty()]
+		$ClientName=@($env:COMPUTERNAME),
+
+        [Int]
+        $TimeoutMS = 1000,
+
+        [Int]
+        $portNumber=139,
+
+        [Int]
+        $Count = 0
+    )
+
+    begin
+    {
+        $Script:exitContext = $false
+    }
+
+    process
+    {
+        
+        ForEach($Computer in $ClientName)
+        {
+            if( -not ([System.Net.Sockets.TcpClient]::new().ConnectAsync($Computer,$portNumber).AsyncWaitHandle.WaitOne($TimeoutMS,$exitContext)))
+            {
+                #retry
+                for ($i = 0; $i -lt $Count; $i++)
+                { 
+                    Write-Host "retrying tcpconnection to $Computer on $portNumber"
+                    if([System.Net.Sockets.TcpClient]::new().ConnectAsync($Computer,$portNumber).AsyncWaitHandle.WaitOne($TimeoutMS,$exitContext))
+                    {
+                        Write-Output $true
+                    }
+        
+                }
+        
+                Write-Output $false
+        
+            }
+            else
+            {
+                Write-Output $true
+            }
+        }
+    }
+
+    end
+    {
+
+    }
+}
+
+
+function Scan-Port {
+	[CmdletBinding()]
+	[OutputType([System.Object])]
+	param(
+		[Parameter(Mandatory=$false, ValueFromPipeline=$true, ValueFromPipelineByPropertyName=$true)]
+		[Alias("CN","Name","PSComputerName","MachineName","Workstation","ServerName","HostName","ComputerName")]
+		[ValidateNotNullOrEmpty()]
+		$ClientName=@($env:COMPUTERNAME),
+		
+		[String[]]
+		$Ports=("21","23","25","80","443","3389"),
+		
+		[Switch]
+		$MultiThread,
+		
+		$MaxThreads=20,
+		
+		$MaxResultTime=500,
+		
+		$SleepTimer=1000
+	)
+	begin
+	{
+
+	}
+	process 
+	{
+		foreach($Computer in $ClientName)
+		{$note=New-Object PSObject | Select-Object ComputerName,RemoteIP
+			Write-Verbose "Scanning host $Computer"
+			ForEach ( $Port in $Ports )
+            {
+                #$note=New-Object PSObject | Select-Object ComputerName,TTL,RemoteIP
+                Add-Member -InputObject $note -MemberType NoteProperty -Name $Port -Value "NA"
+                Write-Verbose "Scanning Port $Port on $Computer"
+                
+				$Scriptblock=
+				{
+					param($Computer,$Port)
+					try{
+                        
+                        
+						$tcp=New-Object System.Net.Sockets.TcpClient
+						#($Computer, $Port)
+						$connect = $tcp.BeginConnect($Computer,$Port,$null,$null)
+						$Wait = $connect.AsyncWaitHandle.WaitOne(1000,$false)
+						
+						If (-Not $Wait)
+						{
+                           Write-Verbose "Timeout connecting to $($Computer) : $($Port)"
+                           $note.$Port = "Timeout"
+                           #$note.$Port = $false
+						}
+						Else
+						{
+                            
+                            $Error.clear()
+						    $tcp.EndConnect($connect)
+						}
+
+					}
+					catch [System.Management.Automation.RuntimeException]{
+						Write-Warning "RuntimeException connecting to $($Computer):$($Port)"
+					}
+					catch [System.TimeoutException]{
+						Write-Warning "TimeOutException connecting to $($Computer):$($Port)"
+					}
+					catch 
+					{
+						Write-Warning "Could not connect to $($Computer):$($Port)"
+					}
+					
+					$note.ComputerName=$Computer
+					#$note.Port=$Port
+					
+                    if ($tcp.client.connected)
+                    {
+                        #$note.PortOpen=$True
+                        $note.$Port = $true
+						#$note.TTL=$($tcp.client.ttl)
+						[string]$rep=$tcp.client.RemoteEndPoint
+						[string]$ip=$rep.substring(0,$rep.indexof(":"))
+		           		$note.RemoteIP=$ip
+					}
+					else{
+                        #$note.PortOpen=$False
+                        
+						#$note.TTL="No TTL"
+						$note.RemoteIP="Unknown"
+					}	
+					#$note
+					#dispose and disconnect
+					$tcp.close()
+                }
+                if ($PSCmdlet.MyInvocation.BoundParameters.ContainsKey('verbose'))
+                {
+                    Invoke-Command -ScriptBlock $ScriptBlock -ArgumentList $Computer,$Port,$Verbose
+                }
+                # for each parameter in the scriptblock add the same argument to the argumentlist
+                else
+                {
+                    Invoke-Command -ScriptBlock $ScriptBlock -ArgumentList $Computer,$Port
+                }
+            }
+
+            $note
+
+        }
+        
+	}
+	end
+	{
+	    $ResultTimer = Get-Date
+		
+	    While (@($Jobs | Where-Object {$_.Handle -ne $Null}).count -gt 0)  {
+	    
+	        $Remaining = "$($($Jobs | Where-Object {$_.Handle.IsCompleted -eq $False}).object)"
+	        If ($Remaining.Length -gt 60){
+	            $Remaining = $Remaining.Substring(0,60) + "..."
+	        }
+	        Write-Progress `
+	            -Activity "Waiting for Jobs - $($MaxThreads - $($RunspacePool.GetAvailableRunspaces())) of $MaxThreads threads running" `
+	            -PercentComplete (($Jobs.count - $($($Jobs | Where-Object {$_.Handle.IsCompleted -eq $False}).count)) / $Jobs.Count * 100) `
+	            -Status "$(@($($Jobs | Where-Object {$_.Handle.IsCompleted -eq $False})).count) remaining - $remaining" 
+
+	        ForEach ($Job in $($Jobs | Where-Object {$_.Handle.IsCompleted -eq $True})){
+			    $Job.Thread.EndInvoke($Job.Handle)
+	            $Job.Thread.Dispose()
+	            $Job.Thread = $Null
+	            $Job.Handle = $Null
+	            $ResultTimer = Get-Date
+	        }
+	        If (($(Get-Date) - $ResultTimer).totalseconds -gt $MaxResultTime){
+               Write-Warning "Child script appears to be frozen, try increasing MaxResultTime...CTRL + C to abort operation"
+	        }
+	        Start-Sleep -Milliseconds $SleepTimer
+	    } 
+	    $RunspacePool.Close() | Out-Null
+	    $RunspacePool.Dispose() | Out-Null
+	} # end endblock
+}
