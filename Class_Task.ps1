@@ -1,4 +1,9 @@
-﻿#region Enums
+﻿<#
+    version 1.0.1
+    fixed few typo's
+#>
+
+#region Enums
 
 Enum TaskType{
     TASK_ACTION_EXEC          = 0
@@ -260,7 +265,7 @@ Class Task
     [System.Object]GetFolders($ParentFolder)
     {
         $Parent=$this.objScheduler.GetFolder($ParentFolder)
-        return $Parent.GetFolders(0) | Select Name
+        return $Parent.GetFolders(0) | Select-Object Name
     }
 
     [String]GetState()
@@ -283,7 +288,7 @@ Class Task
     [System.Object]GetTasks($ParentFolder)
     {
         $Parent=$this.objScheduler.GetFolder($ParentFolder)
-        return $Parent.GetTasks(0) | Select Name
+        return $Parent.GetTasks(0) | Select-Object Name
     }
 
     Hide()
