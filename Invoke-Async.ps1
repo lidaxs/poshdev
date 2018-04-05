@@ -70,16 +70,16 @@ param(
             If($CmdType -eq 'Function')
             {
                 $ScriptBlock = (Get-Item Function:\$Cmdlet).ScriptBlock
-                1..$ThreadCount | ForEach-Object{ $Threads += [powershell]::Create().AddScript($ScriptBlock)}
+                1..$ThreadCount | ForEach-Object{ $Threads = $Threads + [powershell]::Create().AddScript($ScriptBlock)}
             }
             ElseIf($CmdType -eq "Cmdlet")
             {
-                1..$ThreadCount  | ForEach-Object{ $Threads += [powershell]::Create().AddCommand($Cmdlet)}
+                1..$ThreadCount  | ForEach-Object{ $Threads = $Threads + [powershell]::Create().AddCommand($Cmdlet)}
             }
         }
         Else
         {
-            1..$ThreadCount | ForEach-Object{ $Threads += [powershell]::Create().AddScript($ScriptBlock)}
+            1..$ThreadCount | ForEach-Object{ $Threads = $Threads + [powershell]::Create().AddScript($ScriptBlock)}
         }
 
         If($Params){$Threads | ForEach-Object{$_.AddParameters($Params) | Out-Null}}
