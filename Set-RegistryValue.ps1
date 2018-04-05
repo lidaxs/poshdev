@@ -1,7 +1,10 @@
 <#
+	version 1.0.3
+	added alias Add-RegistryValue	
+
 	version 1.0.2
 	Added Aliases to ClientName parameter to support pipeline in from WMI,SCCM & Active Directory
-	
+
 	version 1.0.1
 	changed verb to Set
 	
@@ -74,6 +77,7 @@ Function Set-RegistryValue {
 	#>
 	[CmdletBinding(SupportsShouldProcess=$true)]
 	[OutputType([System.Object])]
+	[Alias('Add-RegistryValue')]
 	param(
 		[Parameter(Mandatory=$false, ValueFromPipeline=$true, ValueFromPipelineByPropertyName=$true)]
 		[Alias("CN","Name","PSComputerName","MachineName","Workstation","ServerName","HostName","ComputerName")]
