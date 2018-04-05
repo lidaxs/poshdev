@@ -1,4 +1,7 @@
 <#
+	version 1.0.2
+	Added Aliases to ClientName parameter to support pipeline in from WMI,SCCM & Active Directory
+	
 	version 1.0.1
 	changed verb to Set
 	
@@ -73,7 +76,7 @@ Function Set-RegistryValue {
 	[OutputType([System.Object])]
 	param(
 		[Parameter(Mandatory=$false, ValueFromPipeline=$true, ValueFromPipelineByPropertyName=$true)]
-		[Alias("CN","MachineName","Workstation","ServerName","HostName","ComputerName")]
+		[Alias("CN","Name","PSComputerName","MachineName","Workstation","ServerName","HostName","ComputerName")]
 		[ValidateNotNullOrEmpty()]
 		$ClientName=@($env:COMPUTERNAME),
 
@@ -156,37 +159,8 @@ Function Set-RegistryValue {
 
 	process
     {
-		#
-		# test pipeline input and pick the right attributes from the incoming objects
-		if($ClientName.__NAMESPACE -like 'root\sms\site_*')
-        {
-			Write-Verbose "Object received from sccm."
-			$ClientName=$ClientName.Name
-		}
-		elseif($ClientName.objectclass -eq 'computer')
-        {
-			Write-Verbose "Object received from Active Directory module."
-			$ClientName=$ClientName.Name
-		}
-		elseif($ClientName.__NAMESPACE -like 'root\cimv2*')
-        {
-			Write-Verbose "Object received from WMI"
-			$ClientName=$ClientName.PSComputerName
-		}
-		elseif($ClientName.ComputerName)
-        {
-			Write-Verbose "Object received from pscustom"
-			$ClientName=$ClientName.ComputerName
-		}
-		else
-        {
-			Write-Verbose "No pipeline or no specified attribute from inputobject"
-		}
-		# end test pipeline input and pick the right attributes from the incoming objects
-		#
 
-
-	# Loop through collection
+		# Loop through collection
 		ForEach($Computer in $ClientName)
         {
 
