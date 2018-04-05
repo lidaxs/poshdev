@@ -52,7 +52,6 @@ param(
     {
 
         [System.Collections.ArrayList]$Threads = @()
-        $Threads = @()
         $Length = $JobsLeft = $Set.Length
 
         $Count = 0
@@ -98,7 +97,7 @@ param(
                 If($Jobs[$idx].IsCompleted) #job ran ok, clear it out
                 {  
                     $result = $null
-                    if($threads[$idx].InvocationStateInfo.State -eq "Failed")
+                    if($Threads[$idx].InvocationStateInfo.State -eq "Failed")
                     {
                         $result  = $Threads[$idx].InvocationStateInfo.Reason
                         Write-Error "Set Item: $($SetParamObj.Value) Exception: $result"
