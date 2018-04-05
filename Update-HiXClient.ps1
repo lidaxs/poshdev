@@ -1,4 +1,7 @@
 <#
+	version 1.0.1
+	todo!! change required scripts in scriptblock
+
 	version 1.0.0
 	Initial upload
 	added aliases to clientname property to support pipeline input from WMI, SCCM and  Active Directory
@@ -166,7 +169,7 @@ function Update-Hixclient{
 
                     if($PSBoundParameters.ContainsKey($Environment)){
 
-                        if($PSCmdlet.ShouldProcess("$Computer", "Update-Hixclient_MT"))
+                        if($PSCmdlet.ShouldProcess("$Computer", "Update-HixClient"))
                         {
                             Write-Verbose "Workstation $Computer is online..."
 
@@ -196,7 +199,6 @@ function Update-Hixclient{
                                     . \\srv-fs01\Scripts$\ps\Get-RegistryValue.ps1
                                     . \\srv-fs01\Scripts$\ps\Add-RegistryValue.ps1
 									. \\srv-fs01\Scripts$\ps\Get-HiXVersion.ps1
-
                                 }
                                 catch
                                 {
