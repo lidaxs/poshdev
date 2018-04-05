@@ -1,4 +1,7 @@
 ﻿<#
+    version 1.0.2
+    improved readability
+    
     version 1.0.1
     converted $Threads to ArrayList
 
@@ -32,19 +35,25 @@ param(
 #The data group to process, such as server names.
 [parameter(Mandatory=$true,ValueFromPipeLine=$true)]
 [object[]]$Set,
+
 #The parameter name that the set belongs to, such as Computername.
 [parameter(Mandatory=$true)]
 [string] $SetParam,
+
 #The Cmdlet for Function you'd like to process with.
 [parameter(Mandatory=$true, ParameterSetName='cmdlet')]
 [string]$Cmdlet,
+
 #The ScriptBlock you'd like to process with
 [parameter(Mandatory=$true, ParameterSetName='ScriptBlock')]
 [scriptblock]$ScriptBlock,
+
 #any aditional parameters to be forwarded to the cmdlet/function/scriptblock
 [hashtable]$Params,
+
 #number of jobs to spin up, default being 10.
 [int]$ThreadCount=10,
+
 #return performance data
 [switch]$Measure
 )
