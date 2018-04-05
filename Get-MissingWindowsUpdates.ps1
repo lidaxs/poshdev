@@ -1,4 +1,7 @@
 ﻿<#
+version 1.1.3
+Added Aliases to ClientName parameter to support pipeline in from WMI,SCCM & Active Directory in all functions
+
 version 1.1.2
 created a fancier counter in function Start-ProcessingPatchFiles
 
@@ -467,8 +470,9 @@ Function Get-Memory
 	[CmdletBinding(SupportsShouldProcess=$true)]
 	[OutputType([System.Management.Automation.PSObject])]
 	param(
-		[Parameter(Position=0, Mandatory=$false,ValueFromPipeline=$true)]
-		[Alias("ComputerName","CN","MachineName","Workstation","ServerName","HostName")]
+		[Parameter(Mandatory=$false, ValueFromPipeline=$true, ValueFromPipelineByPropertyName=$true)]
+		[Alias("CN","Name","PSComputerName","MachineName","Workstation","ServerName","HostName","ComputerName")]
+		[ValidateNotNullOrEmpty()]
 		$ClientName=@($env:COMPUTERNAME)
 	)
 
@@ -479,32 +483,6 @@ Function Get-Memory
 
 	# processblock
 	process {
-
-
-		#
-		# test pipeline input and pick the right attributes from the incoming objects
-		if($ClientName.__NAMESPACE -like 'root\sms\site_*'){
-			Write-Verbose "Object received from sccm."
-			$ClientName=$ClientName.Name
-		}
-		elseif($ClientName.objectclass -eq 'computer'){
-			Write-Verbose "Object received from Active Directory module."
-			$ClientName=$ClientName.Name
-		}
-		elseif($ClientName.__NAMESPACE -like 'root\cimv2*'){
-			Write-Verbose "Object received from WMI"
-			$ClientName=$ClientName.PSComputerName
-		}
-		elseif($ClientName.ComputerName){
-			Write-Verbose "Object received from pscustom"
-			$ClientName=$ClientName.ComputerName
-		}
-		else{
-			Write-Verbose "No pipeline or no specified attribute from inputobject"
-		}
-		# end test pipeline input and pick the right attributes from the incoming objects
-		#
-
 
 		# add -Whatif and -Confirm support to the CmdLet
 		if($PSCmdlet.ShouldProcess("$ClientName", "Get-Memory")){
@@ -632,10 +610,9 @@ function Get-MissingWindowsUpdates
 	[CmdletBinding(SupportsShouldProcess=$true)]
 	[OutputType([System.Object])]
 	param(
-		[Parameter(Mandatory=$false,ValueFromPipeline=$true)]
-		[Alias("CN","MachineName","Workstation","ServerName","HostName","ComputerName")]
+		[Parameter(Mandatory=$false, ValueFromPipeline=$true, ValueFromPipelineByPropertyName=$true)]
+		[Alias("CN","Name","PSComputerName","MachineName","Workstation","ServerName","HostName","ComputerName")]
 		[ValidateNotNullOrEmpty()]
-		#[System.String[]]
 		$ClientName=@($env:COMPUTERNAME),
 
         [String]$Article,
@@ -685,33 +662,6 @@ function Get-MissingWindowsUpdates
 	}
 	process
 	{
-		# test pipeline input and pick the right attributes from the incoming objects
-		if($ClientName.__NAMESPACE -like 'root\sms\site_*')
-		{
-			Write-Verbose "Object received from sccm."
-			$ClientName=$ClientName.Name
-		}
-		elseif($ClientName.classname -eq 'computer')
-		{
-			Write-Verbose "Object received from Active Directory module."
-			$ClientName=$ClientName.Name
-		}
-		elseif($ClientName.__NAMESPACE -like 'root\cimv2*')
-		{
-			Write-Verbose "Object received from WMI"
-			$ClientName=$ClientName.PSComputerName
-		}
-		elseif($ClientName.ComputerName)
-		{
-			Write-Verbose "Object received from pscustom"
-			$ClientName=$ClientName.ComputerName
-		}
-		else
-		{
-			Write-Verbose "No pipeline or no specified attribute from inputobject"
-		}
-		# end test pipeline input and pick the right attributes from the incoming objects
-		#
 
 		# loop through collection
 		ForEach($Computer in $ClientName)
