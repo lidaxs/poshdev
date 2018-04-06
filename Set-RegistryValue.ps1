@@ -136,25 +136,23 @@ Function Set-RegistryValue {
         $HiveParameterAttributes.Mandatory         = $true
         $HiveParameterAttributes.HelpMessage       = "Press `'TAB`' to cycle through the different values"
 		$HiveParameterAttributes.ParameterSetName  = '__AllParameterSets'
-		
+		$HiveAttributeCollection                   = New-Object  System.Collections.ObjectModel.Collection[System.Attribute]
+		$HiveAttributeCollection.Add($HiveParameterAttributes)
+		$Hive                                      = [enum]::GetNames([Microsoft.Win32.RegistryHive])
+		$HiveAttributeCollection.Add((New-Object  System.Management.Automation.ValidateSetAttribute($Hive)))
+		$HiveRuntimeParameters                     = New-Object System.Management.Automation.RuntimeDefinedParameter('Hive', [System.String[]], $HiveAttributeCollection)
+
         $TypeParameterAttributes                   = New-Object System.Management.Automation.ParameterAttribute
         $TypeParameterAttributes.Mandatory         = $true
         $TypeParameterAttributes.HelpMessage       = "Press `'TAB`' to cycle through the different typevalues"
 		$TypeParameterAttributes.ParameterSetName  = '__AllParameterSets'
-		
-		$HiveAttributeCollection                   = New-Object  System.Collections.ObjectModel.Collection[System.Attribute]
 		$TypeAttributeCollection                   = New-Object  System.Collections.ObjectModel.Collection[System.Attribute]
-        $Hive                                      = [enum]::GetNames([Microsoft.Win32.RegistryHive])
-		$Type                                      = [enum]::GetNames([Microsoft.Win32.RegistryValueKind])
-		$HiveAttributeCollection.Add($HiveParameterAttributes)
 		$TypeAttributeCollection.Add($TypeParameterAttributes)
-        $HiveAttributeCollection.Add((New-Object  System.Management.Automation.ValidateSetAttribute($Hive)))
+		$Type                                      = [enum]::GetNames([Microsoft.Win32.RegistryValueKind])
 		$TypeAttributeCollection.Add((New-Object  System.Management.Automation.ValidateSetAttribute($Type)))
-
-        $HiveRuntimeParameters                     = New-Object System.Management.Automation.RuntimeDefinedParameter('Hive', [System.String[]], $HiveAttributeCollection)
 		$TypeRuntimeParameters                     = New-Object System.Management.Automation.RuntimeDefinedParameter('Type', [System.String[]], $TypeAttributeCollection)
+
 		$RuntimeParametersDictionary               = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
-		
 		$RuntimeParametersDictionary.Add('Hive', $HiveRuntimeParameters)
 		$RuntimeParametersDictionary.Add('Type', $TypeRuntimeParameters)
         return  $RuntimeParametersDictionary
