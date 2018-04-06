@@ -338,6 +338,8 @@ function Install-Application
                                 $taskobject=[Task]::new($Computer)
                                 $taskobject.AddNewTask([tasktype]::TASK_ACTION_EXEC)
                                 $taskobject.Hide()
+                                #...does not seem to work and task does not get registered
+                                # $taskobject.DeleteExpiredTaskAfterXHours(2)
                             }
                             else
                             {
