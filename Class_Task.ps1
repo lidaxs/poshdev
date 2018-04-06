@@ -1,4 +1,7 @@
 ﻿<#
+    version 1.0.2
+    renamed method DeleteExpiredTaskAfter to DeleteExpiredTaskAfterXHours
+
     version 1.0.1
     fixed few typo's
 #>
@@ -218,7 +221,7 @@ Class Task
         $Parent.CreateFolder($FolderName)
     }
 
-    DeleteExpiredTaskAfter([System.Int16]$Hours)
+    DeleteExpiredTaskAfterXHours([System.Int16]$Hours)
     {
         $this.TaskObject.Settings.DeleteExpiredTaskAfter = "PT$($Hours)H"
     }
