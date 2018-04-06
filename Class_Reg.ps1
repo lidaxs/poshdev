@@ -223,10 +223,11 @@ $ValueKind
     static [void]DeleteValue([String]$ComputerName,[String]$Hive,[String]$Key,$ValueName)
     {
         $reghive = [Reg]::ConnectHive($ComputerName,$Hive)
-        $mykey   = $null
+        #$mykey   = $null
         try
         {
-            $myvalue=$reghive.RemoteBaseKey.OpenSubKey($Key,$true).DeleteValue($ValueName)
+            #$myvalue=$reghive.RemoteBaseKey.OpenSubKey($Key,$true).DeleteValue($ValueName)
+            $reghive.RemoteBaseKey.OpenSubKey($Key,$true).DeleteValue($ValueName)
         }
         catch
         {

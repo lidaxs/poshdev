@@ -1,4 +1,8 @@
 ﻿<#
+    version 1.0.2
+    converted parameter UseADGroups to dynamic parameter
+    added aliases to parameter ClientName to support pipeline input from WMI, SCCM and Active Directory
+
     version 1.0.1
     converted inputparameters $CredentialObject to type [System.Management.Automation.PSCredential]
     changed path of classfiles
@@ -18,7 +22,7 @@
 [reflection.assembly]::LoadWithPartialName("System.DirectoryServices.AccountManagement") | Out-Null
 
 # create collection which holds all the created tasks
-[System.Collections.ArrayList]$registeredtasx=@()
+[System.Collections.ArrayList]$global:registeredtasx=@()
 
 
 # load classes
@@ -31,14 +35,19 @@ function Install-Application
 {
 	<#
 		.SYNOPSIS
-			Short description of function.
+			Installs applications to local or remote computers using the taskengine.
 
 		.DESCRIPTION
-			long description of function.
+            Installs applications to local or remote computers using the taskengine.
+            Commandlines and checkvalues are retrieved from the active directory group objects
 
 		.PARAMETER  ClientName
 			The ClientName(s) on which to operate.
-			This can be a string or collection
+            This can be a string or collection
+
+        .PARAMETER UseADGroups
+            Dynamic parameter queries Active Directory for possible groups
+            Use 'TAB' to cycle through groups
 
 		.PARAMETER MultiThread
 			Enable multithreading
@@ -53,10 +62,10 @@ function Install-Application
 			Time to wait between checks if thread has finished
 
 		.EXAMPLE
-			PS C:\> Verb-Noun -ClientName C120VMXP,C120WIN7
+			PS C:\> Install-Application -ClientName APPV-W7-X86 -Install -RunAsSystem -RunTaskAfterCreation -UseADGroups L-APP-AdobeFlashActiveX -Verbose
 
 		.EXAMPLE
-			PS C:\> $mycollection | Verb-Noun
+			PS C:\> $mycollection | Install-Application -Install -RunAsSystem -RunTaskAfterCreation -UseADGroups L-APP-AdobeFlashActiveX
 
 		.INPUTS
 			System.String,System.String[]
@@ -83,11 +92,6 @@ function Install-Application
 		[System.String[]]
         $ClientName=@($env:COMPUTERNAME),
         
-        [Parameter(ParameterSetName="Install")]
-        [Parameter(ParameterSetName="Remove")]
-        [System.String[]]
-        $UseADGroups,
-
         [Parameter(ParameterSetName="Install")]
         [Switch]
         $Install,
@@ -156,8 +160,27 @@ function Install-Application
         [Parameter(Mandatory=$false,ParameterSetName="Remove")]
 		[Int]
 		$SleepTimer=1000
-	)
-	
+    )
+    
+    DynamicParam
+    {          
+        $ParameterAttributes                   = New-Object System.Management.Automation.ParameterAttribute
+        $ParameterAttributes.Mandatory         = $true
+        $ParameterAttributes.HelpMessage       = "Press `'TAB`' through the collection of groups"
+        $ParameterAttributes.ParameterSetName  = '__AllParameterSets'
+        $AttributeCollection                   = New-Object  System.Collections.ObjectModel.Collection[System.Attribute]
+        $UseADGroups                           = [System.Collections.ArrayList]$list=[adsisearcher]::new([adsi]"LDAP://OU=Applicaties_Script,OU=Groepen,OU=AZG,DC=antoniuszorggroep,DC=local","objectcategory=group","Name").FindAll().Properties.name
+
+        $AttributeCollection.Add($ParameterAttributes)
+        $AttributeCollection.Add((New-Object  System.Management.Automation.ValidateSetAttribute($UseADGroups)))
+
+        $RuntimeParameters                     = New-Object System.Management.Automation.RuntimeDefinedParameter('UseADGroups', [System.String[]], $AttributeCollection)
+
+        $RuntimeParametersDictionary           = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
+        $RuntimeParametersDictionary.Add('UseADGroups', $RuntimeParameters)
+        return  $RuntimeParametersDictionary
+    }
+
 	begin
 	{
         # get and store global credential when not run as system
@@ -283,12 +306,12 @@ function Install-Application
                     [System.Management.Automation.PSCredential]
                     $CredentialObject
 
-				)
+                )
 					# Test connectivity
 					if (Test-Connection -ComputerName $Computer -Count 1 -Quiet -ErrorAction SilentlyContinue)
 					{
-						#the code to execute in each thread
-						try
+                        #the code to execute in each thread
+                        try
 						{
                             # load classes
                             . '\\srv-sccm02\sources$\Software\AZG\PS\Class_ADS.ps1'
@@ -306,17 +329,15 @@ function Install-Application
                                 Write-Warning "Version of operatingsystem is too low to install applications!"
                                 break
                             }
-
+                            
                             # create taskobject
-                            # just one to put in all commands of all groups
-                            # if you create a task for each group and you run it immediate then windows installer will fail
+                            $taskname="Process"
+
                             if ($RunAsSystem)
                             {
                                 $taskobject=[Task]::new($Computer)
-                                
                                 $taskobject.AddNewTask([tasktype]::TASK_ACTION_EXEC)
                                 $taskobject.Hide()
-                                $taskname="Process"
                             }
                             else
                             {
@@ -324,7 +345,6 @@ function Install-Application
                                 Write-Verbose "credentials for $($CredentialObject.UserName) passed to Install-Application"
                                 $taskobject=[Task]::new($Computer,$CredentialObject)
                                 $taskobject.AddNewTask([tasktype]::TASK_ACTION_EXEC)
-                                $taskname="Process"
                             }
 
                             #add time triggers
@@ -344,7 +364,7 @@ function Install-Application
 
 
                             #foreach group in usegroups
-                            foreach ($group in $UseADGroups)
+                            foreach ($group in $($PSBoundParameters.UseADGroups))
                             {
                                 Write-Verbose "Processing $group....."
                                 $taskname+="_$group"
@@ -492,16 +512,15 @@ function Install-Application
                                 $taskobject.AddExecAction("C:\Windows\system32\shutdown.exe","-r -t 0 -f",$env:SystemRoot)
                             }
                             
-
                             # registertask
-                            if ($taskobject.TaskObject.Actions.count -gt 0)
+                            if ($($taskobject.TaskObject.Actions.count) -gt 0)
                             {
-                                
-                                [void]$registeredtasx.Add($taskobject)
+
                                 New-Variable -Name "Task_$($Computer)_$($taskname)" -Value $taskobject -Scope global -Force
 
                                 if($RunAsSystem)
                                 {
+                                    Write-Verbose "Registering task $taskname"
                                     $taskobject.RegisterTaskAsSystem($taskname)
                                 }
                                 else
@@ -523,7 +542,8 @@ function Install-Application
 						}
 						catch
 						{
-                            Write-Warning $Error[0].Exception.Message
+                            $myerr=$Error[0].Exception.ErrorRecord
+                            Write-Warning "Error in script $($myerr.InvocationInfo.ScriptName) on line $($myerr.InvocationInfo.ScriptLineNumber) : $(myerr.Exception)"
 						}
 					} # end if test-connection
 					else # computer is online
@@ -538,9 +558,10 @@ function Install-Application
 
 			if ($MultiThread)
 			{
+                Write-Verbose "Processing $($PSBoundParameters.UseADGroups) in multithreadingblock"
 				$PowershellThread = [powershell]::Create().AddScript($ScriptBlock)
 				$PowershellThread.AddParameter("Computer", $Computer) | out-null
-                $PowershellThread.AddParameter("UseADGroups", $UseADGroups) | out-null
+                $PowershellThread.AddParameter("UseADGroups", $($PSBoundParameters.UseADGroups)) | out-null
                 $PowershellThread.AddParameter("Install", $Install) | out-null
                 $PowershellThread.AddParameter("Remove", $Remove) | out-null
                 $PowershellThread.AddParameter("RemoveRequired", $RemoveRequired) | out-null
@@ -569,12 +590,12 @@ function Install-Application
 			{
 				if ($PSCmdlet.MyInvocation.BoundParameters.ContainsKey('verbose'))
 				{
-					Invoke-Command -ScriptBlock $ScriptBlock -ArgumentList $Computer,$UseADGroups,$Install,$Remove,$RemoveRequired,$SendNotification,$RunAsSystem,$RunTaskAfterCreation,$RebootAfterCompletion,$StartTime,$EndTime,$CredentialObject,$Verbose
+					Invoke-Command -ScriptBlock $ScriptBlock -ArgumentList $Computer,$($PSBoundParameters.UseADGroups),$Install,$Remove,$RemoveRequired,$SendNotification,$RunAsSystem,$RunTaskAfterCreation,$RebootAfterCompletion,$StartTime,$EndTime,$CredentialObject,$Verbose
 				}
 				# for each parameter in the scriptblock add the same argument to the argumentlist
 				else
 				{
-					Invoke-Command -ScriptBlock $ScriptBlock -ArgumentList $Computer,$UseADGroups,$Install,$Remove,$RemoveRequired,$SendNotification,$RunAsSystem,$RunTaskAfterCreation,$RebootAfterCompletion,$StartTime,$EndTime,$CredentialObject
+					Invoke-Command -ScriptBlock $ScriptBlock -ArgumentList $Computer,$($PSBoundParameters.UseADGroups),$Install,$Remove,$RemoveRequired,$SendNotification,$RunAsSystem,$RunTaskAfterCreation,$RebootAfterCompletion,$StartTime,$EndTime,$CredentialObject
 				}
 			}
 
