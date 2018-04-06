@@ -141,8 +141,8 @@ Function Set-RegistryValue {
 		
 		$HiveAttributeCollection                   = New-Object  System.Collections.ObjectModel.Collection[System.Attribute]
 		$TypeAttributeCollection                   = New-Object  System.Collections.ObjectModel.Collection[System.Attribute]
-        $Hive                                  = [enum]::GetNames([Microsoft.Win32.RegistryHive])
-		$Type                                  = [enum]::GetNames([Microsoft.Win32.RegistryValueKind])
+        $Hive                                      = [enum]::GetNames([Microsoft.Win32.RegistryHive])
+		$Type                                      = [enum]::GetNames([Microsoft.Win32.RegistryValueKind])
 		$HiveAttributeCollection.Add($HiveParameterAttributes)
 		$TypeAttributeCollection.Add($TypeParameterAttributes)
         $HiveAttributeCollection.Add((New-Object  System.Management.Automation.ValidateSetAttribute($Hive)))
@@ -150,7 +150,7 @@ Function Set-RegistryValue {
 
         $HiveRuntimeParameters                     = New-Object System.Management.Automation.RuntimeDefinedParameter('Hive', [System.String[]], $HiveAttributeCollection)
 		$TypeRuntimeParameters                     = New-Object System.Management.Automation.RuntimeDefinedParameter('Type', [System.String[]], $TypeAttributeCollection)
-		$RuntimeParametersDictionary           = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
+		$RuntimeParametersDictionary               = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
 		
 		$RuntimeParametersDictionary.Add('Hive', $HiveRuntimeParameters)
 		$RuntimeParametersDictionary.Add('Type', $TypeRuntimeParameters)
@@ -273,11 +273,11 @@ Function Set-RegistryValue {
 				{
 					$PowershellThread = [powershell]::Create().AddScript($ScriptBlock)
 					$PowershellThread.AddParameter("Computer", $Computer) | Out-Null
-					$PowershellThread.AddParameter("Hive", $Hive) | Out-Null
+					$PowershellThread.AddParameter("Hive", $($PSBoundParameters.Hive)) | Out-Null
 					$PowershellThread.AddParameter("Key", $Key) | Out-Null
 					$PowershellThread.AddParameter("ValueName", $ValueName) | Out-Null
 					$PowershellThread.AddParameter("Value", $Value) | Out-Null
-					$PowershellThread.AddParameter("Type", $Type) | Out-Null
+					$PowershellThread.AddParameter("Type", $($PSBoundParameters.Type)) | Out-Null
 
 					if($PSCmdlet.MyInvocation.BoundParameters.ContainsKey('verbose'))
 					{
@@ -285,24 +285,24 @@ Function Set-RegistryValue {
 					}
 
 					$PowershellThread.RunspacePool = $RunspacePool
-					$Handle = $PowershellThread.BeginInvoke()
-					$Job = "" | Select-Object Handle, Thread, object
+					$Handle     = $PowershellThread.BeginInvoke()
+					$Job        = "" | Select-Object Handle, Thread, object
 					$Job.Handle = $Handle
 					$Job.Thread = $PowershellThread
 					$Job.Object = $Computer.ToString()
-					$Jobs += $Job
+					$Jobs      += $Job
 				}
 
 				else
 				{
 					if ($PSCmdlet.MyInvocation.BoundParameters.ContainsKey('verbose'))
 					{
-						Invoke-Command -ScriptBlock $ScriptBlock -ArgumentList $Computer,$Hive,$Key,$ValueName,$Value,$Type,$Verbose
+						Invoke-Command -ScriptBlock $ScriptBlock -ArgumentList $Computer,$($PSBoundParameters.Hive),$Key,$ValueName,$Value,$($PSBoundParameters.Type),$Verbose
 					}
 
 					else
 					{
-						Invoke-Command -ScriptBlock $ScriptBlock -ArgumentList $Computer,$Hive,$Key,$ValueName,$Value,$Type
+						Invoke-Command -ScriptBlock $ScriptBlock -ArgumentList $Computer,$($PSBoundParameters.Hive),$Key,$ValueName,$Value,$($PSBoundParameters.Type)
 					}
 				}
 			} # end if test-connection
@@ -337,8 +337,8 @@ Function Set-RegistryValue {
 				{
 					$Job.Thread.EndInvoke($Job.Handle)
 					$Job.Thread.Dispose()
-					$Job.Thread = $Null
-					$Job.Handle = $Null
+					$Job.Thread  = $Null
+					$Job.Handle  = $Null
 					$ResultTimer = Get-Date
 				}
 				If (($(Get-Date) - $ResultTimer).totalseconds -gt $MaxResultTime)
