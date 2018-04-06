@@ -197,7 +197,7 @@ function Update-Hixclient{
                                 try
                                 {
                                     . \\srv-fs01\Scripts$\ps\Get-RegistryValue.ps1
-                                    . \\srv-fs01\Scripts$\ps\Add-RegistryValue.ps1
+                                    . \\srv-fs01\Scripts$\ps\Set-RegistryValue.ps1
 									. \\srv-fs01\Scripts$\ps\Get-HiXVersion.ps1
                                 }
                                 catch
@@ -315,9 +315,9 @@ function Update-Hixclient{
                                     else
                                     {
                                         # regvalues
-                                        Add-RegistryValue -ComputerName $Computer -Key $ZISKey -ValueName AllowMultipleApps -Value True -Type String
-							            Add-RegistryValue -ComputerName $Computer -Key $ZISKey\PacsConnection -ValueName PacsAssemblyName -Value "ChipSoft.Ezis.Rontgen.PacsConnectors, Version=5.2.0.0, Culture=neutral, PublicKeyToken=e44af0478e02a927" -Type String
-							            Add-RegistryValue -ComputerName $Computer -Key $ZISKey\PacsConnection -ValueName PacsTypeName -Value "ChipSoft.Ezis.Rontgen.PacsConnectors.Sectra.SectraConnection" -Type String
+                                        Set-RegistryValue -ComputerName $Computer -Key $ZISKey -ValueName AllowMultipleApps -Value True -Type String
+							            Set-RegistryValue -ComputerName $Computer -Key $ZISKey\PacsConnection -ValueName PacsAssemblyName -Value "ChipSoft.Ezis.Rontgen.PacsConnectors, Version=5.2.0.0, Culture=neutral, PublicKeyToken=e44af0478e02a927" -Type String
+							            Set-RegistryValue -ComputerName $Computer -Key $ZISKey\PacsConnection -ValueName PacsTypeName -Value "ChipSoft.Ezis.Rontgen.PacsConnectors.Sectra.SectraConnection" -Type String
                                         $PublicPrograms=(Get-RegistryValue -ComputerName $Computer -Key "SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders" -ValueName "Common Programs").Value
                                         $PublicDesktop=(Get-RegistryValue -ComputerName $Computer -Key "SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders" -ValueName "Common Desktop").Value
                                         $PublicDesktop=$PublicDesktop.Replace(":","$")
