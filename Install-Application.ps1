@@ -560,7 +560,7 @@ function Install-Application
 
 			if ($MultiThread)
 			{
-                Write-Verbose "Processing $($PSBoundParameters.UseADGroups) in multithreadingblock"
+                #Write-Verbose "Processing $($PSBoundParameters.UseADGroups) in multithreadingblock"
 				$PowershellThread = [powershell]::Create().AddScript($ScriptBlock)
 				$PowershellThread.AddParameter("Computer", $Computer) | out-null
                 $PowershellThread.AddParameter("UseADGroups", $($PSBoundParameters.UseADGroups)) | out-null
