@@ -1,4 +1,7 @@
 <#
+	version 1.0.5
+	fixed invoke-command(replaced variables $Hive and $Type with $($PSBoundParameters.Hive) and $($PSBoundParameters.Type))
+
 	version 1.0.4
 	added dynamic parameters for  Hive and Type
 	added verbosing to multithreading
