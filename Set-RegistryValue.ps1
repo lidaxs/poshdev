@@ -1,4 +1,10 @@
 <#
+	version 1.0.4
+	added dynamic parameters for  Hive and Type
+	added verbosing to multithreading
+	removed obsolete parameters ListRegistryHive and ListValueKind
+	removed parameters Hive and Type...they are now in the DynamicParam block
+
 	version 1.0.3
 	added alias Add-RegistryValue	
 
@@ -10,6 +16,13 @@
 	
 	version 1.0.0
 	Initial upload
+
+	wishlist:
+	dynamic parameter for Hive..done
+	dynamic parameter for Type..done
+	verbose in multithread..done
+	removal of list switches..done
+
 #>
 
 Function Set-RegistryValue {
@@ -84,11 +97,6 @@ Function Set-RegistryValue {
 		[ValidateNotNullOrEmpty()]
 		$ClientName=@($env:COMPUTERNAME),
 
-		[Parameter(Mandatory=$false,HelpMessage="Possible Values for this parameter are ClassesRoot,CurrentUser,LocalMachine,Users,PerformanceData,CurrentConfig and DynData")]
-		[ValidateNotNullOrEmpty()]
-		[System.String]
-		$Hive='LocalMachine',
-		
 		[Parameter(Mandatory=$false)]
 		[System.String]
 		$Key,
@@ -100,18 +108,6 @@ Function Set-RegistryValue {
 		[Parameter(Mandatory=$false)]
 		$Value,
 		
-		[Parameter(Mandatory=$true,HelpMessage="Possible values for this parameter are String,DWord,Binary,MultiString,ExpandString and QWord")]
-		[System.String]
-		$Type,
-		
-		[Parameter(Mandatory=$false)]
-		[Switch]
-		$ListRegistryValueKind,
-		
-		[Parameter(Mandatory=$false)]
-		[Switch]
-		$ListRegistryHive,
-
 		# run the script multithreaded against multiple computers
 		[Parameter(Mandatory=$false)]
 		[Switch]
@@ -131,22 +127,39 @@ Function Set-RegistryValue {
 		[Int]
 		$SleepTimer=1000
 	)
+    DynamicParam
+    {          
+        $HiveParameterAttributes                   = New-Object System.Management.Automation.ParameterAttribute
+        $HiveParameterAttributes.Mandatory         = $true
+        $HiveParameterAttributes.HelpMessage       = "Press `'TAB`' to cycle through the different values"
+		$HiveParameterAttributes.ParameterSetName  = '__AllParameterSets'
+		
+        $TypeParameterAttributes                   = New-Object System.Management.Automation.ParameterAttribute
+        $TypeParameterAttributes.Mandatory         = $true
+        $TypeParameterAttributes.HelpMessage       = "Press `'TAB`' to cycle through the different typevalues"
+		$TypeParameterAttributes.ParameterSetName  = '__AllParameterSets'
+		
+		$HiveAttributeCollection                   = New-Object  System.Collections.ObjectModel.Collection[System.Attribute]
+		$TypeAttributeCollection                   = New-Object  System.Collections.ObjectModel.Collection[System.Attribute]
+        $Hive                                  = [enum]::GetNames([Microsoft.Win32.RegistryHive])
+		$Type                                  = [enum]::GetNames([Microsoft.Win32.RegistryValueKind])
+		$HiveAttributeCollection.Add($HiveParameterAttributes)
+		$TypeAttributeCollection.Add($TypeParameterAttributes)
+        $HiveAttributeCollection.Add((New-Object  System.Management.Automation.ValidateSetAttribute($Hive)))
+		$TypeAttributeCollection.Add((New-Object  System.Management.Automation.ValidateSetAttribute($Type)))
 
+        $HiveRuntimeParameters                     = New-Object System.Management.Automation.RuntimeDefinedParameter('Hive', [System.String[]], $HiveAttributeCollection)
+		$TypeRuntimeParameters                     = New-Object System.Management.Automation.RuntimeDefinedParameter('Type', [System.String[]], $TypeAttributeCollection)
+		$RuntimeParametersDictionary           = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
+		
+		$RuntimeParametersDictionary.Add('Hive', $HiveRuntimeParameters)
+		$RuntimeParametersDictionary.Add('Type', $TypeRuntimeParameters)
+        return  $RuntimeParametersDictionary
+	}
 	begin
 	{
 		if ($MultiThread)
 		{
-			# If you don't know what kind of regtypes you can use this switch to get a list
-			# Default is String(REG_SZ)
-			if($ListRegistryValueKind){
-				return [enum]::GetNames([Microsoft.Win32.RegistryValueKind])
-				break
-			}
-			elseif($ListRegistryHive){
-				return [enum]::GetNames([Microsoft.Win32.RegistryHive])
-				break
-			}
-
 			Write-Verbose "Creating Default Initial Session State"
 			$ISS = [system.management.automation.runspaces.initialsessionstate]::CreateDefault()
 			
@@ -256,26 +269,41 @@ Function Set-RegistryValue {
                     }
 				} # end if $PSCmdlet.ShouldProcess
 
-				if ($MultiThread) {
-				$PowershellThread = [powershell]::Create().AddScript($ScriptBlock)
-				$PowershellThread.AddParameter("Computer", $Computer) | Out-Null
-				$PowershellThread.AddParameter("Hive", $Hive) | Out-Null
-				$PowershellThread.AddParameter("Key", $Key) | Out-Null
-				$PowershellThread.AddParameter("ValueName", $ValueName) | Out-Null
-				$PowershellThread.AddParameter("Value", $Value) | Out-Null
-				$PowershellThread.AddParameter("Type", $Type) | Out-Null
-				$PowershellThread.RunspacePool = $RunspacePool
-				$Handle = $PowershellThread.BeginInvoke()
-				$Job = "" | Select-Object Handle, Thread, object
-				$Job.Handle = $Handle
-				$Job.Thread = $PowershellThread
-				$Job.Object = $Computer.ToString()
-				$Jobs += $Job
+				if ($MultiThread)
+				{
+					$PowershellThread = [powershell]::Create().AddScript($ScriptBlock)
+					$PowershellThread.AddParameter("Computer", $Computer) | Out-Null
+					$PowershellThread.AddParameter("Hive", $Hive) | Out-Null
+					$PowershellThread.AddParameter("Key", $Key) | Out-Null
+					$PowershellThread.AddParameter("ValueName", $ValueName) | Out-Null
+					$PowershellThread.AddParameter("Value", $Value) | Out-Null
+					$PowershellThread.AddParameter("Type", $Type) | Out-Null
+
+					if($PSCmdlet.MyInvocation.BoundParameters.ContainsKey('verbose'))
+					{
+						$PowershellThread.AddParameter("Verbose") | out-null
+					}
+
+					$PowershellThread.RunspacePool = $RunspacePool
+					$Handle = $PowershellThread.BeginInvoke()
+					$Job = "" | Select-Object Handle, Thread, object
+					$Job.Handle = $Handle
+					$Job.Thread = $PowershellThread
+					$Job.Object = $Computer.ToString()
+					$Jobs += $Job
 				}
 
 				else
 				{
-					Invoke-Command -ScriptBlock $ScriptBlock -ArgumentList $Computer,$Hive,$Key,$ValueName,$Value,$Type
+					if ($PSCmdlet.MyInvocation.BoundParameters.ContainsKey('verbose'))
+					{
+						Invoke-Command -ScriptBlock $ScriptBlock -ArgumentList $Computer,$Hive,$Key,$ValueName,$Value,$Type,$Verbose
+					}
+
+					else
+					{
+						Invoke-Command -ScriptBlock $ScriptBlock -ArgumentList $Computer,$Hive,$Key,$ValueName,$Value,$Type
+					}
 				}
 			} # end if test-connection
 
