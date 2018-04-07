@@ -9,26 +9,31 @@
     initial upload and moved synopsis inside function
 #>
 function Invoke-Async{
-    <#
-.Synopsis
-   A means of running multiple instances of a cmdlet/function/scriptblock
-.DESCRIPTION
-   This function allows you to provide a cmdlet, function or script block with a set of data to allow multithreading.
-.EXAMPLE
-   $sb = [scriptblock] {param($system) gwmi win32_operatingsystem -ComputerName $system | select csname,caption}
-   $servers = Get-Content servers.txt
-   $rtn = Invoke-Async -Set $server -SetParam system  -ScriptBlock $sb
-.EXAMPLE
-   $servers = Get-Content servers.txt
-   $rtn = Invoke-Async -Set $servers -SetParam computername -Params @{count=1} -Cmdlet Test-Connection -ThreadCount 50 
-.INPUTS
-   
-.OUTPUTS
-   Determined by the provided cmdlet, function or scriptblock.
-.NOTES
-    This can often times eat up a lot of memory due in part to how some cmdlets work. Test-Connection is a good example of this. 
-    Although it is not a good idea to manually run the garbage collector it might be needed in some cases and can be run like so:
-    [gc]::Collect()
+<#
+    .Synopsis
+    A means of running multiple instances of a cmdlet/function/scriptblock
+
+    .DESCRIPTION
+    This function allows you to provide a cmdlet, function or script block with a set of data to allow multithreading.
+
+    .EXAMPLE
+    $sb = [scriptblock] {param($system) gwmi win32_operatingsystem -ComputerName $system | select csname,caption}
+    $servers = Get-Content servers.txt
+    $rtn = Invoke-Async -Set $server -SetParam system  -ScriptBlock $sb
+
+    .EXAMPLE
+    $servers = Get-Content servers.txt
+    $rtn = Invoke-Async -Set $servers -SetParam computername -Params @{count=1} -Cmdlet Test-Connection -ThreadCount 50 
+
+    .INPUTS
+    
+    .OUTPUTS
+    Determined by the provided cmdlet, function or scriptblock.
+    
+    .NOTES
+        This can often times eat up a lot of memory due in part to how some cmdlets work. Test-Connection is a good example of this. 
+        Although it is not a good idea to manually run the garbage collector it might be needed in some cases and can be run like so:
+        [gc]::Collect()
 #>
 
 param(
