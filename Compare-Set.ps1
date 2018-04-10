@@ -1,4 +1,12 @@
-﻿function Compare-Set
+﻿<#
+    version 1.0.0.1
+    added some documentation
+    fixed typo
+    
+    version 1.0.0.0
+    Initial upload
+#>
+function Compare-Set
 {
 <#
 .Synopsis
@@ -10,37 +18,39 @@
     $DifferenceObject = [string[]]@("noot","zus","jet")
     Compare-Set -ReferenceObject $ReferenceObject -DifferenceObject $DifferenceObject
 
-ReferenceObject  : {aap, noot, mies}
-DifferenceObject : {noot, zus, jet}
-InBoth           : {noot}
-Combined         : {aap, noot, mies, zus...}
-OnlyInReference  : {aap, mies}
-OnlyInDifference : {zus, jet}
-ExclusiveInBoth  : {aap, zus, mies, jet}
+    ReferenceObject  : {aap, noot, mies}
+    DifferenceObject : {noot, zus, jet}
+    InBoth           : {noot}
+    Combined         : {aap, noot, mies, zus...}
+    OnlyInReference  : {aap, mies}
+    OnlyInDifference : {zus, jet}
+    ExclusiveInBoth  : {aap, zus, mies, jet}
 
 .EXAMPLE
     $ReferenceObject = [int[]](1,2,3,4)
     $DifferenceObject = [int[]](2,4,6,8)
     Compare-Set -ReferenceObject $ReferenceObject -DifferenceObject $DifferenceObject
-ReferenceObject  : {1, 2, 3, 4}
-DifferenceObject : {2, 4, 6, 8}
-InBoth           : {2, 4}
-Combined         : {1, 2, 3, 4...}
-OnlyInReference  : {1, 3}
-OnlyInDifference : {6, 8}
-ExclusiveInBoth  : {1, 8, 3, 6}
+
+    ReferenceObject  : {1, 2, 3, 4}
+    DifferenceObject : {2, 4, 6, 8}
+    InBoth           : {2, 4}
+    Combined         : {1, 2, 3, 4...}
+    OnlyInReference  : {1, 3}
+    OnlyInDifference : {6, 8}
+    ExclusiveInBoth  : {1, 8, 3, 6}
 
 .EXAMPLE
     $ReferenceObject=Get-ADComputer -Filter 'Name -like "C12040*"' | Select -ExpandProperty Name
     $DifferenceObject=Get-ADComputer -Filter 'Name -like "C120403*"' | Select -ExpandProperty Name
     Compare-Set -ReferenceObject $ReferenceObject -DifferenceObject $DifferenceObject
-ReferenceObject  : {C1204000, C1204032, C1204038, C1204056...}
-DifferenceObject : {C1204032, C1204038}
-InBoth           : {C1204032, C1204038}
-Combined         : {C1204000, C1204032, C1204038, C1204056...}
-OnlyInReference  : {C1204000, C1204056, C1204058, C1204076...}
-OnlyInDifference : {}
-ExclusiveInBoth  : {C1204000, C1204056, C1204058, C1204076...}
+
+    ReferenceObject  : {C1204000, C1204032, C1204038, C1204056...}
+    DifferenceObject : {C1204032, C1204038}
+    InBoth           : {C1204032, C1204038}
+    Combined         : {C1204000, C1204032, C1204038, C1204056...}
+    OnlyInReference  : {C1204000, C1204056, C1204058, C1204076...}
+    OnlyInDifference : {}
+    ExclusiveInBoth  : {C1204000, C1204056, C1204058, C1204076...}
 
 .INPUTS
    Inputs to this cmdlet [int[]],[string[]]
@@ -75,6 +85,7 @@ ExclusiveInBoth  : {C1204000, C1204056, C1204058, C1204076...}
     {
         try
         {
+            # cast inputobjects to [String[]]
             $ReferenceObject=[String[]]$ReferenceObject
             $DifferenceObject=[String[]]$DifferenceObject
         }
@@ -91,7 +102,7 @@ ExclusiveInBoth  : {C1204000, C1204056, C1204058, C1204076...}
         $HashSet2 = New-Object System.Collections.Generic.HashSet[$($DifferenceObject.GetType().Name.Trim("[]"))](,$DifferenceObject)
 
         # create customobject for returning results
-        $result = New-Object PSCustomObject | Select ReferenceObject,DifferenceObject,InBoth,Combined,OnlyInReference,OnlyInDifference,ExclusiveInBoth
+        $result = New-Object PSCustomObject | Select-Object ReferenceObject,DifferenceObject,InBoth,Combined,OnlyInReference,OnlyInDifference,ExclusiveInBoth
         
         # create copy of object because they change
         $InBoth = New-Object "System.Collections.Generic.HashSet[$($ReferenceObject.GetType().Name.Trim("[]"))]" $HashSet1
