@@ -1,70 +1,77 @@
 <#
-version 1.1.5
-Article parameter multivalued like 29334545,12335211,24556222
+	version 1.2.0
+	added parameter SkipFileCheck
+	this will return all deployed updates
 
-version 1.1.4
-added counter to mailsubject and operation to mailbody 
+	version 1.1.5
+	Article parameter multivalued like 29334545,12335211,24556222
 
-initial version 1.1.3
-ported from Get-MissingWindowsUpdates script to make it more generic
-implemented switch Status with two options
-implemented removal of patches
+	version 1.1.4
+	added counter to mailsubject and operation to mailbody 
 
-version 1.1.2
-created a fancier counter in function Start-ProcessingPatchFiles
+	initial version 1.1.3
+	ported from Get-MissingWindowsUpdates script to make it more generic
+	implemented switch Status with two options
+	implemented removal of patches
 
-version 1.1.1
-Fixed a bug in the multithreadingpart
-SetlabeledUri and ClearLabeledUriBefore were still in the scriptblock...thes are removed
-Added some verbosing to the Get-MissingWindowsUpdates
+	version 1.1.2
+	created a fancier counter in function Start-ProcessingPatchFiles
 
-version 1.1.0
-Added systeembeheer to Cc in function Start-ProcessingPatchFiles
+	version 1.1.1
+	Fixed a bug in the multithreadingpart
+	SetlabeledUri and ClearLabeledUriBefore were still in the scriptblock...thes are removed
+	Added some verbosing to the Get-MissingWindowsUpdates
 
-version 1.0.9
-added statements to catchblock around line 199
+	version 1.1.0
+	Added systeembeheer to Cc in function Start-ProcessingPatchFiles
 
-version 1.0.8
-rewritten synopsis for Invoke-PatchProcess
-added -erroraction stop to get-wmiobject
+	version 1.0.9
+	added statements to catchblock around line 199
 
-version 1.0.7
-removed unapproved verbs and implemented SupportsShouldProcess
-removed SetlabeledUri and ClearLabeledUriBefore from function Get-MissingWidowsUpdates and the scriptblock
-(is obsolete now because updates are checked from the local store instead of the labeledUri object in Active Directory)
-added try catch block to address elevation issue
+	version 1.0.8
+	rewritten synopsis for Invoke-PatchProcess
+	added -erroraction stop to get-wmiobject
 
-version 1.0.6
-set $subject properly in 
+	version 1.0.7
+	removed unapproved verbs and implemented SupportsShouldProcess
+	removed SetlabeledUri and ClearLabeledUriBefore from function Get-MissingWidowsUpdates and the scriptblock
+	(is obsolete now because updates are checked from the local store instead of the labeledUri object in Active Directory)
+	added try catch block to address elevation issue
 
-version 1.0.5
-on break(CTRL+C) still send the updatereport for the updates installed so far
-move processblock of process-patchfiles to endblock to support counting number of piped in objects
+	version 1.0.6
+	set $subject properly in 
 
-version 1.0.4
-fixed Out-HTMLDataTable not to output empty tablerows
-fixed creating computername directory under temp to extract patches
+	version 1.0.5
+	on break(CTRL+C) still send the updatereport for the updates installed so far
+	move processblock of process-patchfiles to endblock to support counting number of piped in objects
 
-version 1.0.3
-bug resolved $result+= op_addition failed
-added scriptvariable $mailresult
+	version 1.0.4
+	fixed Out-HTMLDataTable not to output empty tablerows
+	fixed creating computername directory under temp to extract patches
 
-version 1.0.2
-return mailadress added from computerobject
-out-htmldatatable function added
-switch sendnotification added in process-patchfiles
+	version 1.0.3
+	bug resolved $result+= op_addition failed
+	added scriptvariable $mailresult
 
- version 1.0.1
-.cab files are now processed with dism.exe instead of pkgmgr
-bug solved with the switches -IncludeOfficeUpdates and -IncludeSQLUpdates
+	version 1.0.2
+	return mailadress added from computerobject
+	out-htmldatatable function added
+	switch sendnotification added in process-patchfiles
+
+	version 1.0.1
+	.cab files are now processed with dism.exe instead of pkgmgr
+	bug solved with the switches -IncludeOfficeUpdates and -IncludeSQLUpdates
 
 
-wishlist
-mail report when ready...done
-on break send report of patches installed so far...done
-counter on processpatchfiles...done
-make more generic(filter on status)(remove patchfiles)...done
-make Article parameter multivalued like 29334545,12335211,24556222
+	wishlist
+	mail report when ready...done
+	on break send report of patches installed so far...done
+	counter on processpatchfiles...done
+	make more generic(filter on status)(remove patchfiles)...done
+	make Article parameter multivalued like 29334545,12335211,24556222...done
+	implement classifications translationtable...see https://msdn.microsoft.com/en-us/library/windows/desktop/ff357803(v=vs.85).aspx
+	investigate hidden property
+	a more speedy test-connection
 #> 
 
 function Start-ProcessingPatchFiles
@@ -78,8 +85,8 @@ function Start-ProcessingPatchFiles
 		$FilePath,
         
         [ValidateSet('Install','Remove')]
-        [String]$Operation = 'Install',
-
+		[String]$Operation = 'Install',
+		
 		[Parameter(Mandatory=$false)]
 		[System.Int16]
         $MinFreeMemPercentage = 10,
@@ -644,8 +651,12 @@ function Get-WindowsUpdates
 		.PARAMETER  ClientName
 			The ClientName(s) on which to operate.
 			This can be a string or collection
+
         .Parameter Status
-            Filter on Installed or Missing updates
+			Filter on Installed or Missing updates
+			
+		.Parameter SkipFileCheck
+			By using this parameter even the not downloaded updates will be displayed
 
         .Parameter Article
             The kb article(s) to query
@@ -706,8 +717,8 @@ function Get-WindowsUpdates
 		$ClientName=@($env:COMPUTERNAME),
 
         [string]
-        [Parameter(Mandatory=$true)]
-        [ValidateSet('Missing','Installed')]
+		[Parameter(Mandatory=$false)]
+		[ValidateSet('Missing','Installed')]
         $Status,
 
         [String[]]$Articles,
@@ -717,6 +728,9 @@ function Get-WindowsUpdates
         [Switch]$IncludeOfficeUpdates,
 
         [Switch]$IncludeSQLUpdates,
+
+		[Switch]
+		$SkipFileCheck,
 
 		# run the script multithreaded against multiple computers
 		[Parameter(Mandatory=$false)]
@@ -788,9 +802,6 @@ function Get-WindowsUpdates
 		# loop through collection
 		ForEach($Computer in $ClientName)
 		{
-			$ErrorActionPreference='SilentlyContinue'
-			#if([Quest.ActiveRoles.ArsPowerShellSnapIn.Data.ArsComputerObject]$Computer){$Computer=$Computer.Name}
-			$ErrorActionPreference='Continue'
 
 			if($PSCmdlet.ShouldProcess("$Computer", "Get-WindowsUpdates"))
 			{
@@ -803,19 +814,52 @@ function Get-WindowsUpdates
 					[String]
 					$Computer,
 
-                    [String]$Status,
+                    $Status,
 
-                    [String[]]$Articles,
+					[String[]]
+					$Articles,
 
-                    [String]$Bulletin,
+					[String]
+					$Bulletin,
 
-                    [Switch]$IncludeOfficeUpdates,
+					[Switch]
+					$IncludeOfficeUpdates,
 
-                    [Switch]$IncludeSQLUpdates
+					[Switch]
+					$IncludeSQLUpdates,
+
+					[Switch]
+					$SkipFileCheck
+			
 				)
 					# Test connectivity
-					if (Test-Connection -ComputerName $Computer -Count 1 -Quiet -ErrorAction SilentlyContinue)
+					if([System.Net.Sockets.TcpClient]::new().ConnectAsync($Computer,139).AsyncWaitHandle.WaitOne(1000,$false))
 					{
+
+						# hashtable to translate ClassificationTypes to GUID
+						$ClassificationTypes2GUID = @{
+							Application             = "5C9376AB-8CE6-464A-B136-22113DD69801"
+							Connectors              = "434DE588-ED14-48F5-8EED-A15E09A991F6"
+							CriticalUpdates         = "E6CF1350-C01B-414D-A61F-263D14D133B4"
+							DefinitionUpdates       = "E0789628-CE08-4437-BE74-2495B842F43B"
+							DeveloperKits           = "E140075D-8433-45C3-AD87-E72345B36078"
+							Guidance                = "9511D615-35B2-47BB-927F-F73D8E9260BB"
+							SecurityUpdates         = "0FA1201D-4330-4FA8-8AE9-B877473B6441"
+							ServicePacks            = "68C5B0A3-D1A6-4553-AE49-01D3A7827828"
+							Tools                   = "B4832BD8-E735-4761-8DAF-37F882276DAB"
+							UpdateRollups           = "28BC880E-0592-4CBF-8F95-C79B17911D5F"
+							Updates                 = "CD5FFD1E-E932-4E3A-BF74-18BF0B1BBD83"
+							SCOM2012R2              = "2A9170D5-3434-4820-885C-61A4F3FC6F84"
+							SQL2016_SecurityUpdates = "93F0B0BC-9C20-4CA5-B630-06EB4706A447"
+						}
+
+						# reverse the $ClassificationTypes2GUID hashtable to make reverse lookup possible
+						# hashtable to translate GUID to ClassificationType
+						$ClassificationGUIDs2Type=@{}
+						foreach ($key  in $ClassificationTypes2GUID.Keys) {
+							$ClassificationGUIDs2Type.Add($ClassificationTypes2GUID[$key],$key)
+						}
+
 						#the code to execute in each thread
 						try
 						{
@@ -843,8 +887,16 @@ function Get-WindowsUpdates
                             }
 
                                 #$article.Replace("KB","")
-                                #$qry="Select * from CCM_UpdateStatus WHERE Status = 'Missing' And Article Like '$Article' And Bulletin LIKE '$Bulletin'"
-								$global:qry="Select * from CCM_UpdateStatus WHERE Status = '$($Status)'"
+								#$qry="Select * from CCM_UpdateStatus WHERE Status = 'Missing' And Article Like '$Article' And Bulletin LIKE '$Bulletin'"
+								if ($Status)
+								{
+									$global:qry="Select * from CCM_UpdateStatus WHERE Status = '$($Status)'"
+								}
+								else 
+								{
+									$global:qry="Select * from CCM_UpdateStatus"
+								}
+								
 								if($Articles)
 								{
                                     #remove KB from article-string...just in case someone entered them on the commandline
@@ -882,7 +934,12 @@ function Get-WindowsUpdates
 								
 								try
 								{
-									$result=Get-WmiObject -ComputerName $($Computer) -Namespace ROOT\ccm\SoftwareUpdates\UpdatesStore -Query $qry -ErrorAction Stop
+									$global:result=Get-WmiObject -ComputerName $($Computer) -Namespace ROOT\ccm\SoftwareUpdates\UpdatesStore -Query $qry -ErrorAction Stop
+									foreach ($item in $result) {
+										if($ClassificationGUIDs2Type.$($item.ProductID)){
+											$item.ProductID = $ClassificationGUIDs2Type.$($item.ProductID)
+										}
+									}
 									#$global:result=Get-WmiObject -ComputerName $env:COMPUTERNAME -Namespace ROOT\ccm\SoftwareUpdates\UpdatesStore -Query $qry -ErrorAction Stop
 								}
 								catch [System.Management.ManagementException]
@@ -896,26 +953,36 @@ function Get-WindowsUpdates
 									Write-Warning -Message "exiting script"
 									break
 								}
-                                
-                                Write-Verbose "All directories $OSDirectories"
-                                foreach($OSDirectory in $OSDirectories)
-                                {
-									Write-Verbose "Resolving path \\srv-sccm02\Packages$\Updates\$($OSDirectory)"
-                                    foreach($item in $result)
-                                    {
-                                        $ppath=(Resolve-Path "\\srv-sccm02\Packages$\Updates\$($OSDirectory)\$($item.UniqueId)\*.cab","\\srv-sccm02\Packages$\Updates\$($OSDirectory)\$($item.UniqueId)\*.exe" -ErrorAction 0).ProviderPath
-                                        if($ppath)
-                                        {
-											Write-Verbose "Adding path $ppath to resultitem"
-                                            Add-Member -InputObject $item -MemberType NoteProperty -Name FilePath -Value $ppath -Force
-                                        }
-                                    }
+								
+								if (-not ($SkipFileCheck))
+								{
+									Write-Verbose "Searching in directories $OSDirectories"
+									foreach($OSDirectory in $OSDirectories)
+									{
+										Write-Verbose "Resolving path \\srv-sccm02\Packages$\Updates\$($OSDirectory)"
+										foreach($item in $result)
+										{
+											$ppath=(Resolve-Path "\\srv-sccm02\Packages$\Updates\$($OSDirectory)\$($item.UniqueId)\*.cab","\\srv-sccm02\Packages$\Updates\$($OSDirectory)\$($item.UniqueId)\*.exe" -ErrorAction 0).ProviderPath
+											if($ppath)
+											{
+												Write-Verbose "Adding path $ppath to resultitem"
+												Add-Member -InputObject $item -MemberType NoteProperty -Name FilePath -Value $ppath -Force
+											}
+										}
+									}
 
-                                }
+									$output=$result | Where-Object {(-not ([System.String]::IsNullOrEmpty($_.FilePath))) -and ($_.ProductID -ne "28bc880e-0592-4cbf-8f95-c79b17911d5f")} | Select-Object PSComputerName,Article,Bulletin,ProductID,Title,UniqueId,Status,FilePath
+									$output=$result | Where-Object {(-not ([System.String]::IsNullOrEmpty($_.FilePath)))} | Select-Object PSComputerName,Article,Bulletin,ProductID,Title,UniqueId,Status,FilePath
 
+								}
                                 #productid zie.... https://msdn.microsoft.com/en-us/library/windows/desktop/ff357803(v=vs.85).aspx
-                                #$result
-                                $output=$result | Where-Object {(-not ([System.String]::IsNullOrEmpty($_.FilePath))) -and ($_.ProductID -ne "28bc880e-0592-4cbf-8f95-c79b17911d5f")} | Select-Object PSComputerName,Article,Bulletin,ProductID,Title,UniqueId,FilePath
+								#$result
+								else
+								{
+									$output=$result | Where-Object {$_.ProductID -ne "28bc880e-0592-4cbf-8f95-c79b17911d5f"} | Select-Object PSComputerName,Article,Bulletin,ProductID,Title,UniqueId,Status
+									$output=$result | Select-Object PSComputerName,Article,Bulletin,ProductID,Title,UniqueId,Status
+								}
+                                
                                 #$output = $output -notmatch '%'
  
                                 $output
@@ -942,7 +1009,8 @@ function Get-WindowsUpdates
                 $PowershellThread.AddParameter("Articles", $Articles) | out-null
                 $PowershellThread.AddParameter("Bulletin", $Bulletin) | out-null
                 $PowershellThread.AddParameter("IncludeOfficeUpdates", $IncludeOfficeUpdates) | out-null
-                $PowershellThread.AddParameter("IncludeSQLUpdates", $IncludeSQLUpdates) | out-null
+				$PowershellThread.AddParameter("IncludeSQLUpdates", $IncludeSQLUpdates) | out-null
+				$PowershellThread.AddParameter("SkipFileCheck", $SkipFileCheck) | out-null
                 
                 
 				if($PSCmdlet.MyInvocation.BoundParameters.ContainsKey('verbose'))
@@ -962,12 +1030,12 @@ function Get-WindowsUpdates
 			{
 				if ($PSCmdlet.MyInvocation.BoundParameters.ContainsKey('verbose'))
 				{
-					Invoke-Command -ScriptBlock $ScriptBlock -ArgumentList $Computer,$Status,$Articles,$Bulletin,$IncludeOfficeUpdates,$IncludeSQLUpdates,$Verbose
+					Invoke-Command -ScriptBlock $ScriptBlock -ArgumentList $Computer,$Status,$Articles,$Bulletin,$IncludeOfficeUpdates,$IncludeSQLUpdates,$SkipFileCheck,$Verbose
 				}
 				# for each parameter in the scriptblock add the same argument to the argumentlist
 				else
 				{
-					Invoke-Command -ScriptBlock $ScriptBlock -ArgumentList $Computer,$Status,$Articles,$Bulletin,$IncludeOfficeUpdates,$IncludeSQLUpdates
+					Invoke-Command -ScriptBlock $ScriptBlock -ArgumentList $Computer,$Status,$Articles,$Bulletin,$IncludeOfficeUpdates,$IncludeSQLUpdates,$SkipFileCheck
 				}
 			}
 
