@@ -1,7 +1,10 @@
 <#
+	version 1.2.1
+	output filter applied...do not show updaterollups
+
 	version 1.2.0
 	added parameter SkipFileCheck
-	this will return all deployed updates
+	this will return all advertised updates
 
 	version 1.1.5
 	Article parameter multivalued like 29334545,12335211,24556222
@@ -71,7 +74,8 @@
 	make Article parameter multivalued like 29334545,12335211,24556222...done
 	implement classifications translationtable...see https://msdn.microsoft.com/en-us/library/windows/desktop/ff357803(v=vs.85).aspx
 	investigate hidden property
-	a more speedy test-connection
+	a more speedy test-connection...done
+	add default set of update types which we use most?
 #> 
 
 function Start-ProcessingPatchFiles
@@ -971,16 +975,16 @@ function Get-WindowsUpdates
 										}
 									}
 
-									$output=$result | Where-Object {(-not ([System.String]::IsNullOrEmpty($_.FilePath))) -and ($_.ProductID -ne "28bc880e-0592-4cbf-8f95-c79b17911d5f")} | Select-Object PSComputerName,Article,Bulletin,ProductID,Title,UniqueId,Status,FilePath
-									$output=$result | Where-Object {(-not ([System.String]::IsNullOrEmpty($_.FilePath)))} | Select-Object PSComputerName,Article,Bulletin,ProductID,Title,UniqueId,Status,FilePath
+									$output=$result | Where-Object {(-not ([System.String]::IsNullOrEmpty($_.FilePath))) -and ($_.ProductID -ne "UpdateRollUps")} | Select-Object PSComputerName,Article,Bulletin,ProductID,Title,UniqueId,Status,FilePath
+									#$output=$result | Where-Object {(-not ([System.String]::IsNullOrEmpty($_.FilePath)))} | Select-Object PSComputerName,Article,Bulletin,ProductID,Title,UniqueId,Status,FilePath
 
 								}
                                 #productid zie.... https://msdn.microsoft.com/en-us/library/windows/desktop/ff357803(v=vs.85).aspx
 								#$result
 								else
 								{
-									$output=$result | Where-Object {$_.ProductID -ne "28bc880e-0592-4cbf-8f95-c79b17911d5f"} | Select-Object PSComputerName,Article,Bulletin,ProductID,Title,UniqueId,Status
-									$output=$result | Select-Object PSComputerName,Article,Bulletin,ProductID,Title,UniqueId,Status
+									$output=$result | Where-Object {$_.ProductID -ne "UpdateRollUps"} | Select-Object PSComputerName,Article,Bulletin,ProductID,Title,UniqueId,Status
+									#$output=$result | Select-Object PSComputerName,Article,Bulletin,ProductID,Title,UniqueId,Status
 								}
                                 
                                 #$output = $output -notmatch '%'
