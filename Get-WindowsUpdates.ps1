@@ -1,4 +1,13 @@
 <#
+	version 1.2.2
+	add updatetype[] parameter with defaultvalues and remove the includeoffice and includesqlupdates switch
+	remove search through the different updatefolders and make it a search through the root
+	this is slower but the code smaller and less complicated...adapt resolve-path to return only one value(first?)
+	made status parameter multivalued so we can use it like -Status Missing,Installed
+	remove outputfilter for updaterollups..filtering will be applied by inputparameter
+	remove test-pipeline input..added aliases to clientname parameter to support WMI,AD and SCCM
+	made bulletinparameter multivalued and renamed it to Bulletins
+	
 	version 1.2.1
 	output filter applied...do not show updaterollups
 
@@ -404,6 +413,7 @@ function Out-HTMLDataTable
 		}
     }
 }
+
 function ExpandCab
 {
 	[CmdletBinding(SupportsShouldProcess=$true)]
@@ -714,24 +724,28 @@ function Get-WindowsUpdates
 	[CmdletBinding(SupportsShouldProcess=$true)]
 	[OutputType([System.Object])]
 	param(
-		[Parameter(Mandatory=$false,ValueFromPipeline=$true)]
-		[Alias("CN","MachineName","Workstation","ServerName","HostName","ComputerName")]
+		[Parameter(Mandatory = $false,ValueFromPipeline = $true)]
+		[Alias("Name","PSComputerName","CN","MachineName","Workstation","ServerName","HostName","ComputerName")]
 		[ValidateNotNullOrEmpty()]
 		#[System.String[]]
 		$ClientName=@($env:COMPUTERNAME),
 
-        [string]
-		[Parameter(Mandatory=$false)]
+        [String[]]
+		[Parameter(Mandatory = $false)]
 		[ValidateSet('Missing','Installed')]
-        $Status,
+        $Status = 'Missing',
 
-        [String[]]$Articles,
+		[String[]]
+		[Parameter(Mandatory = $false)]
+		[ValidateSet('Application','Connectors','CriticalUpdates','DefinitionUpdates','DeveloperKits','Guidance','OfficeUpdates','SecurityUpdates','ServicePacks','Tools','UpdateRollups','Updates','SCOM2012R2','SQL2016_SecurityUpdates')]
+		#maybe application in default??
+		$UpdateType = @('CriticalUpdates','OfficeUpdates','SecurityUpdates','ServicePacks','Updates','SCOM2012R2','SQL2016_SecurityUpdates'),
 
-        [String]$Bulletin,
+		[String[]]
+		$Articles,
 
-        [Switch]$IncludeOfficeUpdates,
-
-        [Switch]$IncludeSQLUpdates,
+		[String[]]
+		$Bulletins,
 
 		[Switch]
 		$SkipFileCheck,
@@ -775,34 +789,6 @@ function Get-WindowsUpdates
 	}
 	process
 	{
-		# test pipeline input and pick the right attributes from the incoming objects
-		if($ClientName.__NAMESPACE -like 'root\sms\site_*')
-		{
-			Write-Verbose "Object received from sccm."
-			$ClientName=$ClientName.Name
-		}
-		elseif($ClientName.classname -eq 'computer')
-		{
-			Write-Verbose "Object received from Active Directory module."
-			$ClientName=$ClientName.Name
-		}
-		elseif($ClientName.__NAMESPACE -like 'root\cimv2*')
-		{
-			Write-Verbose "Object received from WMI"
-			$ClientName=$ClientName.PSComputerName
-		}
-		elseif($ClientName.ComputerName)
-		{
-			Write-Verbose "Object received from pscustom"
-			$ClientName=$ClientName.ComputerName
-		}
-		else
-		{
-			Write-Verbose "No pipeline or no specified attribute from inputobject"
-		}
-		# end test pipeline input and pick the right attributes from the incoming objects
-		#
-
 		# loop through collection
 		ForEach($Computer in $ClientName)
 		{
@@ -818,19 +804,16 @@ function Get-WindowsUpdates
 					[String]
 					$Computer,
 
-                    $Status,
+					$Status,
+					
+					[System.String[]]
+					$UpdateType,
 
 					[String[]]
 					$Articles,
 
-					[String]
-					$Bulletin,
-
-					[Switch]
-					$IncludeOfficeUpdates,
-
-					[Switch]
-					$IncludeSQLUpdates,
+					[String[]]
+					$Bulletins,
 
 					[Switch]
 					$SkipFileCheck
@@ -848,6 +831,7 @@ function Get-WindowsUpdates
 							DefinitionUpdates       = "E0789628-CE08-4437-BE74-2495B842F43B"
 							DeveloperKits           = "E140075D-8433-45C3-AD87-E72345B36078"
 							Guidance                = "9511D615-35B2-47BB-927F-F73D8E9260BB"
+							OfficeUpdates           = "84F5F325-30D7-41C4-81D1-87A0E6535B66"
 							SecurityUpdates         = "0FA1201D-4330-4FA8-8AE9-B877473B6441"
 							ServicePacks            = "68C5B0A3-D1A6-4553-AE49-01D3A7827828"
 							Tools                   = "B4832BD8-E735-4761-8DAF-37F882276DAB"
@@ -864,43 +848,29 @@ function Get-WindowsUpdates
 							$ClassificationGUIDs2Type.Add($ClassificationTypes2GUID[$key],$key)
 						}
 
+						$UpdateClassification=$ClassificationTypes2GUID[$UpdateType]
+
 						#the code to execute in each thread
 						try
 						{
-							[System.Collections.ArrayList]$OSDirectories=@()
-                            $OSCaption=(Get-WmiObject -Class Win32_OperatingSystem -ComputerName $($Computer)).Caption
-                            if($OSCaption -match "Server 2008 R2")
-                            {
-                                [void]$OSDirectories.Add("Windows 2008 R2")
-                            }
-                            elseif($OSCaption -match "Server 2012 R2")
-                            {
-								[void]$OSDirectories.Add("Windows 2012 R2")
-                            }
-                            elseif($OSCaption -match "Windows Server 2016")
-                            {
-								[void]$OSDirectories.Add("Windows 2016")
-                            }
-                            elseif($OSCaption -match "Windows 7")
-                            {
-								[void]$OSDirectories.Add("Windows7")
-                            }
-                            elseif($OSCaption -match "Windows 10")
-                            {
-								[void]$OSDirectories.Add("Windows 10")
-                            }
-
+							$global:qry="Select * from CCM_UpdateStatus"
                                 #$article.Replace("KB","")
 								#$qry="Select * from CCM_UpdateStatus WHERE Status = 'Missing' And Article Like '$Article' And Bulletin LIKE '$Bulletin'"
-								if ($Status)
+								if ($Status.Count -eq 1)
 								{
-									$global:qry="Select * from CCM_UpdateStatus WHERE Status = '$($Status)'"
+									$qry="$qry WHERE Status = '$($Status)'"
 								}
-								else 
+								elseif($Status.Count -eq 2) 
 								{
-									$global:qry="Select * from CCM_UpdateStatus"
+									$qry="$qry WHERE Status = 'Installed' or Status='Missing'"
 								}
 								
+								if($UpdateType)
+								{
+									$tempqry=$UpdateClassification -join ("`' or UpdateClassification = `'") -join ("`' or UpdateClassification = `'")
+									$qry="$qry And (UpdateClassification = `'$tempqry`')"
+								}
+
 								if($Articles)
 								{
                                     #remove KB from article-string...just in case someone entered them on the commandline
@@ -908,36 +878,22 @@ function Get-WindowsUpdates
                                     {
                                         $Article = $Article.Replace("KB","")
                                     }
-                                    $tempqry=$Articles -join ("%`' or Article Like `'%")
+                                    $tempqry=$Articles -join ("`' or Article = `'")
                                     #("Article Like `'%$tempqry%`'")
-									$qry="$qry And (Article Like `'%$tempqry%`')"
-									[void]$OSDirectories.Add("Office 2010 32-Bit")
-									[void]$OSDirectories.Add("SQL 2008 R2")
-									[void]$OSDirectories.Add("SQL 2016")
-								}
-								if($Bulletin)
-								{
-									$qry="$qry And Bulletin LIKE '%$Bulletin%'"
-									[void]$OSDirectories.Add("Office 2010 32-Bit")
-									[void]$OSDirectories.Add("SQL 2008 R2")
-									[void]$OSDirectories.Add("SQL 2016")
+									$qry="$qry And (Article = `'$tempqry`')"
 								}
 
-								if($IncludeOfficeUpdates)
+								if($Bulletins)
 								{
-									$OfficeDirectory = "Office 2010 32-Bit"
-									Write-Verbose "Adding $OfficeDirectory"
-									[void]$OSDirectories.Add($OfficeDirectory)
+                                    $tempqry=$ArticleBulletinss -join ("`' or Bulletin Like `'")
+                                    #("Article Like `'%$tempqry%`'")
+									$qry="$qry And (Bulletin = `'$tempqry`')"
 								}
 
-								if($IncludeSQLUpdates)
-								{
-									[void]$OSDirectories.Add("SQL 2008 R2")
-									[void]$OSDirectories.Add("SQL 2016")
-								}
 								
 								try
 								{
+									#$computer=$env:COMPUTERNAME
 									$global:result=Get-WmiObject -ComputerName $($Computer) -Namespace ROOT\ccm\SoftwareUpdates\UpdatesStore -Query $qry -ErrorAction Stop
 									foreach ($item in $result) {
 										if($ClassificationGUIDs2Type.$($item.ProductID)){
@@ -960,31 +916,30 @@ function Get-WindowsUpdates
 								
 								if (-not ($SkipFileCheck))
 								{
-									Write-Verbose "Searching in directories $OSDirectories"
-									foreach($OSDirectory in $OSDirectories)
-									{
-										Write-Verbose "Resolving path \\srv-sccm02\Packages$\Updates\$($OSDirectory)"
+									Write-Verbose "Searching in directories"
+
+										Write-Verbose "Resolving path \\srv-sccm02\Packages$\Updates\*\*"
 										foreach($item in $result)
 										{
-											$ppath=(Resolve-Path "\\srv-sccm02\Packages$\Updates\$($OSDirectory)\$($item.UniqueId)\*.cab","\\srv-sccm02\Packages$\Updates\$($OSDirectory)\$($item.UniqueId)\*.exe" -ErrorAction 0).ProviderPath
+											$ppath=(Resolve-Path "\\srv-sccm02\Packages$\Updates\*\$($item.UniqueId)\*.cab","\\srv-sccm02\Packages$\Updates\*\$($item.UniqueId)\*.exe" -ErrorAction 0).ProviderPath
 											if($ppath)
 											{
 												Write-Verbose "Adding path $ppath to resultitem"
 												Add-Member -InputObject $item -MemberType NoteProperty -Name FilePath -Value $ppath -Force
 											}
 										}
-									}
+									
 
-									$output=$result | Where-Object {(-not ([System.String]::IsNullOrEmpty($_.FilePath))) -and ($_.ProductID -ne "UpdateRollUps")} | Select-Object PSComputerName,Article,Bulletin,ProductID,Title,UniqueId,Status,FilePath
-									#$output=$result | Where-Object {(-not ([System.String]::IsNullOrEmpty($_.FilePath)))} | Select-Object PSComputerName,Article,Bulletin,ProductID,Title,UniqueId,Status,FilePath
+									#$output=$result | Where-Object {(-not ([System.String]::IsNullOrEmpty($_.FilePath))) -and ($_.ProductID -ne "UpdateRollUps")} | Select-Object PSComputerName,Article,Bulletin,ProductID,Title,UniqueId,Status,FilePath
+									$output=$result | Where-Object {(-not ([System.String]::IsNullOrEmpty($_.FilePath)))} | Select-Object PSComputerName,Article,Bulletin,ProductID,Title,UniqueId,Status,FilePath
 
 								}
                                 #productid zie.... https://msdn.microsoft.com/en-us/library/windows/desktop/ff357803(v=vs.85).aspx
 								#$result
 								else
 								{
-									$output=$result | Where-Object {$_.ProductID -ne "UpdateRollUps"} | Select-Object PSComputerName,Article,Bulletin,ProductID,Title,UniqueId,Status
-									#$output=$result | Select-Object PSComputerName,Article,Bulletin,ProductID,Title,UniqueId,Status
+									#$output=$result | Where-Object {$_.ProductID -ne "UpdateRollUps"} | Select-Object PSComputerName,Article,Bulletin,ProductID,Title,UniqueId,Status
+									$output=$result | Select-Object PSComputerName,Article,Bulletin,ProductID,Title,UniqueId,Status
 								}
                                 
                                 #$output = $output -notmatch '%'
@@ -1009,10 +964,10 @@ function Get-WindowsUpdates
 			{
 				$PowershellThread = [powershell]::Create().AddScript($ScriptBlock)
                 $PowershellThread.AddParameter("Computer", $Computer) | out-null
-                $PowershellThread.AddParameter("Status", $Status) | out-null
+				$PowershellThread.AddParameter("Status", $Status) | out-null
+				$PowershellThread.AddParameter("UpdateType", $UpdateType) | out-null
                 $PowershellThread.AddParameter("Articles", $Articles) | out-null
-                $PowershellThread.AddParameter("Bulletin", $Bulletin) | out-null
-                $PowershellThread.AddParameter("IncludeOfficeUpdates", $IncludeOfficeUpdates) | out-null
+                $PowershellThread.AddParameter("Bulletins", $Bulletins) | out-null
 				$PowershellThread.AddParameter("IncludeSQLUpdates", $IncludeSQLUpdates) | out-null
 				$PowershellThread.AddParameter("SkipFileCheck", $SkipFileCheck) | out-null
                 
@@ -1034,12 +989,12 @@ function Get-WindowsUpdates
 			{
 				if ($PSCmdlet.MyInvocation.BoundParameters.ContainsKey('verbose'))
 				{
-					Invoke-Command -ScriptBlock $ScriptBlock -ArgumentList $Computer,$Status,$Articles,$Bulletin,$IncludeOfficeUpdates,$IncludeSQLUpdates,$SkipFileCheck,$Verbose
+					Invoke-Command -ScriptBlock $ScriptBlock -ArgumentList $Computer,$Status,$UpdateType,$Articles,$Bulletins,$SkipFileCheck,$Verbose
 				}
 				# for each parameter in the scriptblock add the same argument to the argumentlist
 				else
 				{
-					Invoke-Command -ScriptBlock $ScriptBlock -ArgumentList $Computer,$Status,$Articles,$Bulletin,$IncludeOfficeUpdates,$IncludeSQLUpdates,$SkipFileCheck
+					Invoke-Command -ScriptBlock $ScriptBlock -ArgumentList $Computer,$Status,$UpdateType,$Articles,$Bulletins,$SkipFileCheck
 				}
 			}
 
