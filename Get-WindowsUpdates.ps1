@@ -1,4 +1,8 @@
 <#
+	version 1.2.3
+	added aliases to clientname in function Get-Memory
+	added some verbosing...more to follow
+
 	version 1.2.2
 	add updatetype[] parameter with defaultvalues and remove the includeoffice and includesqlupdates switch
 	remove search through the different updatefolders and make it a search through the root
@@ -548,7 +552,7 @@ Function Get-Memory
 	[OutputType([System.Management.Automation.PSObject])]
 	param(
 		[Parameter(Position=0, Mandatory=$false,ValueFromPipeline=$true)]
-		[Alias("ComputerName","CN","MachineName","Workstation","ServerName","HostName")]
+		[Alias("Name","PSComputerName","ComputerName","CN","MachineName","Workstation","ServerName","HostName")]
 		$ClientName=@($env:COMPUTERNAME)
 	)
 
@@ -559,32 +563,6 @@ Function Get-Memory
 
 	# processblock
 	process {
-
-
-		#
-		# test pipeline input and pick the right attributes from the incoming objects
-		if($ClientName.__NAMESPACE -like 'root\sms\site_*'){
-			Write-Verbose "Object received from sccm."
-			$ClientName=$ClientName.Name
-		}
-		elseif($ClientName.objectclass -eq 'computer'){
-			Write-Verbose "Object received from Active Directory module."
-			$ClientName=$ClientName.Name
-		}
-		elseif($ClientName.__NAMESPACE -like 'root\cimv2*'){
-			Write-Verbose "Object received from WMI"
-			$ClientName=$ClientName.PSComputerName
-		}
-		elseif($ClientName.ComputerName){
-			Write-Verbose "Object received from pscustom"
-			$ClientName=$ClientName.ComputerName
-		}
-		else{
-			Write-Verbose "No pipeline or no specified attribute from inputobject"
-		}
-		# end test pipeline input and pick the right attributes from the incoming objects
-		#
-
 
 		# add -Whatif and -Confirm support to the CmdLet
 		if($PSCmdlet.ShouldProcess("$ClientName", "Get-Memory")){
@@ -854,97 +832,97 @@ function Get-WindowsUpdates
 						try
 						{
 							$global:qry="Select * from CCM_UpdateStatus"
-                                #$article.Replace("KB","")
-								#$qry="Select * from CCM_UpdateStatus WHERE Status = 'Missing' And Article Like '$Article' And Bulletin LIKE '$Bulletin'"
-								if ($Status.Count -eq 1)
+                            #$article.Replace("KB","")
+							#$qry="Select * from CCM_UpdateStatus WHERE Status = 'Missing' And Article Like '$Article' And Bulletin LIKE '$Bulletin'"
+							if ($Status.Count -eq 1)
+							{
+								$qry="$qry WHERE Status = '$($Status)'"
+							}
+							elseif($Status.Count -eq 2) 
+							{
+								$qry="$qry WHERE Status = 'Installed' or Status='Missing'"
+							}
+							
+							if($UpdateType)
+							{
+								$tempqry=$UpdateClassification -join ("`' or UpdateClassification = `'") -join ("`' or UpdateClassification = `'")
+								$qry="$qry And (UpdateClassification = `'$tempqry`')"
+								#Write-Host $qry
+							}
+
+							if($Articles)
+							{
+								#remove KB from article-string...just in case someone entered them on the commandline
+								foreach($Article in $Articles)
 								{
-									$qry="$qry WHERE Status = '$($Status)'"
+									$Article = $Article.Replace("KB","")
 								}
-								elseif($Status.Count -eq 2) 
-								{
-									$qry="$qry WHERE Status = 'Installed' or Status='Missing'"
-								}
+                                $tempqry=$Articles -join ("`' or Article = `'")
+                                #("Article Like `'%$tempqry%`'")
+                                	$qry="$qry And (Article = `'$tempqry`')"
+                            }
+
+                            if($Bulletins)
+                            {
+								$tempqry=$ArticleBulletinss -join ("`' or Bulletin Like `'")
+                            	#("Article Like `'%$tempqry%`'")
+                            	$qry="$qry And (Bulletin = `'$tempqry`')"
+							}
+
 								
-								if($UpdateType)
+                            try
+                            {
+                            	#$computer=$env:COMPUTERNAME
+								$global:result=Get-WmiObject -ComputerName $($Computer) -Namespace ROOT\ccm\SoftwareUpdates\UpdatesStore -Query $qry -ErrorAction Stop
+								foreach ($item in $result)
 								{
-									$tempqry=$UpdateClassification -join ("`' or UpdateClassification = `'") -join ("`' or UpdateClassification = `'")
-									$qry="$qry And (UpdateClassification = `'$tempqry`')"
-								}
-
-								if($Articles)
-								{
-                                    #remove KB from article-string...just in case someone entered them on the commandline
-                                    foreach($Article in $Articles)
-                                    {
-                                        $Article = $Article.Replace("KB","")
-                                    }
-                                    $tempqry=$Articles -join ("`' or Article = `'")
-                                    #("Article Like `'%$tempqry%`'")
-									$qry="$qry And (Article = `'$tempqry`')"
-								}
-
-								if($Bulletins)
-								{
-                                    $tempqry=$ArticleBulletinss -join ("`' or Bulletin Like `'")
-                                    #("Article Like `'%$tempqry%`'")
-									$qry="$qry And (Bulletin = `'$tempqry`')"
-								}
-
-								
-								try
-								{
-									#$computer=$env:COMPUTERNAME
-									$global:result=Get-WmiObject -ComputerName $($Computer) -Namespace ROOT\ccm\SoftwareUpdates\UpdatesStore -Query $qry -ErrorAction Stop
-									foreach ($item in $result) {
-										if($ClassificationGUIDs2Type.$($item.ProductID)){
-											$item.ProductID = $ClassificationGUIDs2Type.$($item.ProductID)
-										}
+									if($ClassificationGUIDs2Type.$($item.ProductID))
+									{
+										$item.ProductID = $ClassificationGUIDs2Type.$($item.ProductID)
 									}
+								}
 									#$global:result=Get-WmiObject -ComputerName $env:COMPUTERNAME -Namespace ROOT\ccm\SoftwareUpdates\UpdatesStore -Query $qry -ErrorAction Stop
-								}
-								catch [System.Management.ManagementException]
-								{
-									Write-Warning "$($Error[0].Exception)"
-									break
-								}
-								catch
-								{
-									Write-Warning -Message $Error[0].Exception.Message
-									Write-Warning -Message "exiting script"
-									break
-								}
+							}
+							catch [System.Management.ManagementException]
+							{
+								Write-Warning "$($Error[0].Exception)"
+								break
+							}
+							catch
+							{
+								Write-Warning -Message $Error[0].Exception.Message
+								Write-Warning -Message "exiting script"
+								break
+							}
 								
-								if (-not ($SkipFileCheck))
+							if (-not ($SkipFileCheck))
+							{
+								Write-Verbose "Searching in directories \\srv-sccm02\Packages$\Updates\*\*"
+								foreach($item in $result)
 								{
-									Write-Verbose "Searching in directories"
-
-										Write-Verbose "Resolving path \\srv-sccm02\Packages$\Updates\*\*"
-										foreach($item in $result)
-										{
-											$ppath=(Resolve-Path "\\srv-sccm02\Packages$\Updates\*\$($item.UniqueId)\*.cab","\\srv-sccm02\Packages$\Updates\*\$($item.UniqueId)\*.exe" -ErrorAction 0).ProviderPath
-											if($ppath)
-											{
-												Write-Verbose "Adding path $ppath to resultitem"
-												Add-Member -InputObject $item -MemberType NoteProperty -Name FilePath -Value $ppath -Force
-											}
-										}
-									
-
-									#$output=$result | Where-Object {(-not ([System.String]::IsNullOrEmpty($_.FilePath))) -and ($_.ProductID -ne "UpdateRollUps")} | Select-Object PSComputerName,Article,Bulletin,ProductID,Title,UniqueId,Status,FilePath
-									$output=$result | Where-Object {(-not ([System.String]::IsNullOrEmpty($_.FilePath)))} | Select-Object PSComputerName,Article,Bulletin,ProductID,Title,UniqueId,Status,FilePath
-
+									Write-Verbose "resolving path \\srv-sccm02\Packages$\Updates\*\$($item.UniqueId)"
+									$ppath=(Resolve-Path "\\srv-sccm02\Packages$\Updates\*\$($item.UniqueId)\*.cab","\\srv-sccm02\Packages$\Updates\*\$($item.UniqueId)\*.exe" -ErrorAction 0).ProviderPath
+									if($ppath)
+									{
+										Write-Verbose "Adding path $ppath to resultitem"
+										Add-Member -InputObject $item -MemberType NoteProperty -Name FilePath -Value $ppath -Force
+									}
 								}
+
+								#$output=$result | Where-Object {(-not ([System.String]::IsNullOrEmpty($_.FilePath))) -and ($_.ProductID -ne "UpdateRollUps")} | Select-Object PSComputerName,Article,Bulletin,ProductID,Title,UniqueId,Status,FilePath
+								$output=$result | Where-Object {(-not ([System.String]::IsNullOrEmpty($_.FilePath)))} | Select-Object PSComputerName,Article,Bulletin,ProductID,Title,UniqueId,Status,FilePath
+
+							}
                                 #productid zie.... https://msdn.microsoft.com/en-us/library/windows/desktop/ff357803(v=vs.85).aspx
 								#$result
-								else
-								{
-									#$output=$result | Where-Object {$_.ProductID -ne "UpdateRollUps"} | Select-Object PSComputerName,Article,Bulletin,ProductID,Title,UniqueId,Status
-									$output=$result | Select-Object PSComputerName,Article,Bulletin,ProductID,Title,UniqueId,Status
-								}
-                                
-                                #$output = $output -notmatch '%'
+							else
+							{
+								#$output=$result | Where-Object {$_.ProductID -ne "UpdateRollUps"} | Select-Object PSComputerName,Article,Bulletin,ProductID,Title,UniqueId,Status
+								$output=$result | Select-Object PSComputerName,Article,Bulletin,ProductID,Title,UniqueId,Status
+							}
  
-                                $output
+							$output
+							
 						}
 						catch
 						{
