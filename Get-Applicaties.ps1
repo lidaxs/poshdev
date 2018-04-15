@@ -1,6 +1,8 @@
 ﻿<#
 	version 1.0.0.1
 	Added aliases to parameter Clientname to support pipelineinput from AD,SCCM and WMI
+	changed test for connectivity
+	moved datetimetemplate to scriptblock
 
 	version 1.0.0.0
 	Initial upload
@@ -82,7 +84,7 @@ Function Get-Applicaties {
 	[OutputType([System.Management.Automation.PSObject])]
 	param(
 		[Parameter(Position=0, Mandatory=$false,ValueFromPipeline=$true,ValueFromPipelineByPropertyName=$true)]
-		[Alias("Name","PSComputerName","ComputerName","CN","MachineName","Workstation","ServerName","HostName","Name")]
+		[Alias("PSComputerName","ComputerName","CN","MachineName","Workstation","ServerName","HostName","Name")]
 		$ClientName=@($env:COMPUTERNAME),
 
 	    [Parameter(Mandatory=$false)]
@@ -146,34 +148,6 @@ Function Get-Applicaties {
 			# loop through collection $ClientName
 			ForEach($Computer in $ClientName)
 			{
-		        #
-		        # test pipeline input and pick the right attributes from the incoming objects
-		        if($Computer.__NAMESPACE -like 'root\sms\site_*')
-		        {
-			        Write-Verbose "Object received from sccm."
-			        $Computer=$Computer.Name
-		        }
-		        elseif($Computer.objectclass -eq 'computer')
-		        {
-			        Write-Verbose "Object received from Active Directory module."
-			        $Computer=$Computer.Name
-		        }
-		        elseif($Computer.__NAMESPACE -like 'root\cimv2*')
-		        {
-			        Write-Verbose "Object received from WMI"
-			        $Computer=$Computer.PSComputerName
-		        }
-		        elseif($Computer.ComputerName)
-		        {
-			        Write-Verbose "Object received from pscustom"
-			        $Computer=$Computer.ComputerName
-		        }
-		        else
-		        {
-			        Write-Verbose "No pipeline or no specified attribute from inputobject"
-		        }
-		        # end test pipeline input and pick the right attributes from the incoming objects
-		        #
 
 				$ScriptBlock=
 				{
@@ -184,10 +158,12 @@ Function Get-Applicaties {
 					$Version="*"
 					)
 
+					$datetimetemplate='yyyyMMdd'
+					
 					$Hive='LocalMachine'
 	
 						# test connection to each $Computer
-						if ( Test-Connection -ComputerName $Computer -Count 1 -Quiet -ErrorAction SilentlyContinue)
+						if([System.Net.Sockets.TcpClient]::new().ConnectAsync($Computer,139).AsyncWaitHandle.WaitOne(1000,$false))
 						{
 							Write-Verbose "$Computer is online..."
 							# start try
