@@ -1,4 +1,7 @@
 ﻿<#
+    version 1.0.3.2
+    added alias Install-App
+    
     version 1.0.3.1
     changed test for connectivity
 
@@ -89,7 +92,8 @@ function Install-Application
 			about_comment_based_help
 	#>
 	[CmdletBinding(SupportsShouldProcess=$true)]
-	[OutputType([System.Object])]
+    [OutputType([System.Object])]
+    [Alias('Install-App')]
 	param(
         [Parameter(Mandatory=$false,ValueFromPipeline=$true,ParameterSetName="Install")]
         [Parameter(Mandatory=$false,ValueFromPipeline=$true,ParameterSetName="Remove")]
