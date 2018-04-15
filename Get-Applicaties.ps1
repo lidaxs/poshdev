@@ -1,4 +1,7 @@
 ﻿<#
+	version 1.0.0.1
+	Added aliases to parameter Clientname to support pipelineinput from AD,SCCM and WMI
+
 	version 1.0.0.0
 	Initial upload
 #>
@@ -79,7 +82,7 @@ Function Get-Applicaties {
 	[OutputType([System.Management.Automation.PSObject])]
 	param(
 		[Parameter(Position=0, Mandatory=$false,ValueFromPipeline=$true,ValueFromPipelineByPropertyName=$true)]
-		[Alias("ComputerName","CN","MachineName","Workstation","ServerName","HostName","Name")]
+		[Alias("Name","PSComputerName","ComputerName","CN","MachineName","Workstation","ServerName","HostName","Name")]
 		$ClientName=@($env:COMPUTERNAME),
 
 	    [Parameter(Mandatory=$false)]
@@ -285,7 +288,7 @@ Function Get-Applicaties {
 
 								foreach ($program in $programs)
 								{
-									$output=New-Object -TypeName PSObject | Select ComputerName,KeyName,DisplayName,Version,UninstallString,InstallDate,InstallLocation,InstallSource,Language,Publisher,LongKeyName,OperatingSystemName,OperatingSystemServicePack,SystemType,DomainRole
+									$output=New-Object -TypeName PSObject | Select-Object ComputerName,KeyName,DisplayName,Version,UninstallString,InstallDate,InstallLocation,InstallSource,Language,Publisher,LongKeyName,OperatingSystemName,OperatingSystemServicePack,SystemType,DomainRole
 									
 									# mind the escape '\' character when using doublequotes
 									$programkey=$uninstallkey + '\' + $program
@@ -336,7 +339,7 @@ Function Get-Applicaties {
 							foreach ($program in $programs)
 							{
 							
-								$output=New-Object -TypeName PSObject | Select ComputerName,KeyName,DisplayName,Version,UninstallString,InstallDate,InstallLocation,InstallSource,Language,Publisher,LongKeyName,OperatingSystemName,OperatingSystemServicePack,SystemType,DomainRole
+								$output=New-Object -TypeName PSObject | Select-Object ComputerName,KeyName,DisplayName,Version,UninstallString,InstallDate,InstallLocation,InstallSource,Language,Publisher,LongKeyName,OperatingSystemName,OperatingSystemServicePack,SystemType,DomainRole
 									
 								# mind the escape '\' character when using doublequotes
 								$programkey=$uninstallkey + '\' + $program
