@@ -1,4 +1,7 @@
 ﻿<#
+    version 1.0.3.1
+    changed test for connectivity
+
     version 1.0.3
     added support for 64-detection of apps
 
@@ -90,7 +93,7 @@ function Install-Application
 	param(
         [Parameter(Mandatory=$false,ValueFromPipeline=$true,ParameterSetName="Install")]
         [Parameter(Mandatory=$false,ValueFromPipeline=$true,ParameterSetName="Remove")]
-		[Alias("CN","MachineName","Workstation","ServerName","HostName","ComputerName")]
+		[Alias("Name","PSComputerName","CN","MachineName","Workstation","ServerName","HostName","ComputerName")]
 		[ValidateNotNullOrEmpty()]
 		[System.String[]]
         $ClientName=@($env:COMPUTERNAME),
@@ -236,33 +239,6 @@ function Install-Application
 
 	process
 	{
-		# test pipeline input and pick the right attributes from the incoming objects
-		if($ClientName.__NAMESPACE -like 'root\sms\site_*')
-		{
-			Write-Verbose "Object received from sccm."
-			$ClientName=$ClientName.Name
-		}
-		elseif($ClientName.objectclass -eq 'computer')
-		{
-			Write-Verbose "Object received from Active Directory module."
-			$ClientName=$ClientName.Name
-		}
-		elseif($ClientName.__NAMESPACE -like 'root\cimv2*')
-		{
-			Write-Verbose "Object received from WMI"
-			$ClientName=$ClientName.PSComputerName
-		}
-		elseif($ClientName.ComputerName)
-		{
-			Write-Verbose "Object received from pscustom"
-			$ClientName=$ClientName.ComputerName
-		}
-		else
-		{
-			Write-Verbose "No pipeline or no specified attribute from inputobject"
-		}
-		# end test pipeline input and pick the right attributes from the incoming objects
-		#
 
 		# loop through collection
 		ForEach($Computer in $ClientName)
@@ -270,7 +246,7 @@ function Install-Application
 
 			if($PSCmdlet.ShouldProcess("$Computer", "Install-Application"))
 			{
-				Write-Verbose "Workstation $Computer is online..."
+
 				$ScriptBlock=
 				{[CmdletBinding(SupportsShouldProcess=$true)]
 				param
@@ -311,7 +287,7 @@ function Install-Application
 
                 )
 					# Test connectivity
-					if (Test-Connection -ComputerName $Computer -Count 1 -Quiet -ErrorAction SilentlyContinue)
+					if([System.Net.Sockets.TcpClient]::new().ConnectAsync($Computer,139).AsyncWaitHandle.WaitOne(1000,$false))
 					{
                         #the code to execute in each thread
                         try
