@@ -1,4 +1,7 @@
 <#
+	version 1.0.5.1
+	set default value for dynamic parameter Hive in beginblock and set mandatory to $false
+
 	version 1.0.5
 	fixed invoke-command(replaced variables $Hive and $Type with $($PSBoundParameters.Hive) and $($PSBoundParameters.Type))
 
@@ -133,7 +136,7 @@ Function Set-RegistryValue {
     DynamicParam
     {          
         $HiveParameterAttributes                   = New-Object System.Management.Automation.ParameterAttribute
-        $HiveParameterAttributes.Mandatory         = $true
+        $HiveParameterAttributes.Mandatory         = $false
         $HiveParameterAttributes.HelpMessage       = "Press `'TAB`' to cycle through the different values"
 		$HiveParameterAttributes.ParameterSetName  = '__AllParameterSets'
 		$HiveAttributeCollection                   = New-Object  System.Collections.ObjectModel.Collection[System.Attribute]
@@ -143,7 +146,7 @@ Function Set-RegistryValue {
 		$HiveRuntimeParameters                     = New-Object System.Management.Automation.RuntimeDefinedParameter('Hive', [System.String[]], $HiveAttributeCollection)
 
         $TypeParameterAttributes                   = New-Object System.Management.Automation.ParameterAttribute
-        $TypeParameterAttributes.Mandatory         = $true
+        $TypeParameterAttributes.Mandatory         = $false
         $TypeParameterAttributes.HelpMessage       = "Press `'TAB`' to cycle through the different typevalues"
 		$TypeParameterAttributes.ParameterSetName  = '__AllParameterSets'
 		$TypeAttributeCollection                   = New-Object  System.Collections.ObjectModel.Collection[System.Attribute]
@@ -158,7 +161,11 @@ Function Set-RegistryValue {
         return  $RuntimeParametersDictionary
 	}
 	begin
-	{
+	{    
+		if ( -not ($PSBoundParameters.Hive))
+		{
+        	$PSBoundParameters.Hive = 'LocalMachine'
+		}
 		if ($MultiThread)
 		{
 			Write-Verbose "Creating Default Initial Session State"
