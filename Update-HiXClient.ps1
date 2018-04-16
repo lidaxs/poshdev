@@ -1,4 +1,7 @@
 <#
+	version 1.0.1.1
+	test connectivity now with wmi
+
 	version 1.0.1
 	todo!! change required scripts in scriptblock
 
@@ -159,7 +162,7 @@ function Update-Hixclient{
 		ForEach($Computer in $ClientName){
 
 			# Test connectivity
-			if (Test-Connection -ComputerName $Computer -Count 1 -Quiet -ErrorAction SilentlyContinue)
+			if ((Get-WmiObject -Query "Select * From Win32_PingStatus Where (Address='$Computer') and timeout=1000").StatusCode -eq 0)
 			{
 
 ###
