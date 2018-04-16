@@ -1,8 +1,10 @@
 ﻿<#
+	version 1.0.0.1
+	test connectivity now with wmi
+	
 	version 1.0.0
 	Initial upload
 	Added Aliases to ClientName parameter to support pipeline in from WMI,SCCM & Active Directory
-
 #>
 Function Get-HiXVersion {
 	<#
@@ -101,7 +103,8 @@ Function Get-HiXVersion {
 			ForEach($Computer in $ClientName){
 
 				# test connection to each $Computer
-				if ( Test-Connection -ComputerName $Computer -Count 1 -Quiet -ErrorAction SilentlyContinue) {
+				if ((Get-WmiObject -Query "Select * From Win32_PingStatus Where (Address='$Computer') and timeout=1000").StatusCode -eq 0)
+				{
 
 					Write-Verbose "$Computer is online..."
 
