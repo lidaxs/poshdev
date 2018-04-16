@@ -1,5 +1,8 @@
 ﻿<#
     version 1.0.3.2
+    todo error handling
+    
+    version 1.0.3.2
     added alias Install-App
     
     version 1.0.3.1
@@ -35,9 +38,9 @@
 
 
 # load classes
-. '\\srv-sccm02\sources$\Software\AZG\PS\Class_ADS.ps1'
-. '\\srv-sccm02\sources$\Software\AZG\PS\Class_Reg.ps1'
-. '\\srv-sccm02\sources$\Software\AZG\PS\Class_Task.ps1'
+. '\\srv-fs01\users\adm-bouweh01\Appz\GIT\Class_ADS.ps1'
+. '\\srv-fs01\users\adm-bouweh01\Appz\GIT\Class_Reg.ps1'
+. '\\srv-fs01\users\adm-bouweh01\Appz\GIT\Class_Task.ps1'
 
 
 function Install-Application
@@ -297,9 +300,9 @@ function Install-Application
                         try
 						{
                             # load classes
-                            . '\\srv-sccm02\sources$\Software\AZG\PS\Class_ADS.ps1'
-                            . '\\srv-sccm02\sources$\Software\AZG\PS\Class_Reg.ps1'
-                            . '\\srv-sccm02\sources$\Software\AZG\PS\Class_Task.ps1'
+                            . '\\srv-fs01\users\adm-bouweh01\Appz\GIT\Class_ADS.ps1'
+                            . '\\srv-fs01\users\adm-bouweh01\Appz\GIT\Class_Reg.ps1'
+                            . '\\srv-fs01\users\adm-bouweh01\Appz\GIT\Class_Task.ps1'
 
 
                             #OS check...not xp
@@ -528,7 +531,7 @@ function Install-Application
 						catch
 						{
                             $myerr=$Error[0].Exception.ErrorRecord
-                            Write-Warning "Error in script $($myerr.InvocationInfo.ScriptName) on line $($myerr.InvocationInfo.ScriptLineNumber) : $(myerr.Exception)"
+                            Write-Warning "Error in script $($myerr.InvocationInfo.ScriptName) on line $($myerr.InvocationInfo.ScriptLineNumber) : $($myerr.Exception)"
 						}
 					} # end if test-connection
 					else # computer is online
