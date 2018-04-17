@@ -1,7 +1,7 @@
 ﻿<#
     version 1.0.4.4
     added some verbosing in testrun
-    
+
     version 1.0.3.4
     added tests to script outside function
     can be called like pathto\Install-Application -TestGroup <GroupName> -RunTests
@@ -54,9 +54,9 @@ param(
 
 
 # load classes
-. '\\srv-fs01\users\adm-bouweh01\Appz\GIT\Class_ADS.ps1'
-. '\\srv-fs01\users\adm-bouweh01\Appz\GIT\Class_Reg.ps1'
-. '\\srv-fs01\users\adm-bouweh01\Appz\GIT\Class_Task.ps1'
+. '\\srv-sccm02\sources$\Software\AZG\PS\Class_ADS.ps1'
+. '\\srv-sccm02\sources$\Software\AZG\PS\Class_Reg.ps1'
+. '\\srv-sccm02\sources$\Software\AZG\PS\Class_Task.ps1'
 
 
 function Install-Application
@@ -340,9 +340,9 @@ function Install-Application
                         try
 						{
                             # load classes
-                            . '\\srv-fs01\users\adm-bouweh01\Appz\GIT\Class_ADS.ps1'
-                            . '\\srv-fs01\users\adm-bouweh01\Appz\GIT\Class_Reg.ps1'
-                            . '\\srv-fs01\users\adm-bouweh01\Appz\GIT\Class_Task.ps1'
+                            . '\\srv-sccm02\sources$\Software\AZG\PS\Class_ADS.ps1'
+                            . '\\srv-sccm02\sources$\Software\AZG\PS\Class_Reg.ps1'
+                            . '\\srv-sccm02\sources$\Software\AZG\PS\Class_Task.ps1'
 
 
                             #OS check...not xp
