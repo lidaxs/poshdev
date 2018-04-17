@@ -1,8 +1,11 @@
 ﻿<#
+    version 1.0.4.4
+    added some verbosing in testrun
+    
     version 1.0.3.4
     added tests to script outside function
     can be called like pathto\Install-Application -TestGroup <GroupName> -RunTests
-    
+
     version 1.0.3.3
     removed validate credentials
     Cannot find type [System.DirectoryServices.AccountManagement.ContextType]::Domain
@@ -700,26 +703,32 @@ if($RunTests)
         $creds=Get-Credential -UserName $env:USERDOMAIN\$env:USERNAME -Message "Enter your credentials"
     }
 
+    Write-Host "Installing applications for $TestGroup on $testclients(RunAsSystem)"
     Install-Application -ClientName $testclients -Install -RunAsSystem -RunTaskAfterCreation -ShowError -UseADGroups $TestGroup
     Start-Sleep -Seconds 10
     #Get-Applicaties -ClientName $testclients -DisplayName *TeleQ*
 
+    Write-Host "Removing applications for $TestGroup on $testclients(RunAsSystem)"
     Install-Application -ClientName $testclients -Remove -RunAsSystem -RunTaskAfterCreation -ShowError -UseADGroups $TestGroup
     Start-Sleep -Seconds 10
     #Get-Applicaties -ClientName $testclients -DisplayName *TeleQ*
 
+    Write-Host "Installing applications for $TestGroup on $testclients(Using credentials)"
     Install-Application -ClientName $testclients -Install -CredentialObject $creds -RunTaskAfterCreation -ShowError -UseADGroups $TestGroup
     Start-Sleep -Seconds 10
     #Get-Applicaties -ClientName $testclients -DisplayName *TeleQ*
 
+    Write-Host "Removing applications for $TestGroup on $testclients(Using credentials)"
     Install-Application -ClientName $testclients -Remove -CredentialObject $creds -RunTaskAfterCreation -ShowError -UseADGroups $TestGroup
     Start-Sleep -Seconds 10
     #Get-Applicaties -ClientName $testclients -DisplayName *TeleQ*
 
+    Write-Host "Installing applications for $TestGroup on $testclients(SendNotification + Verbose)"
     Install-Application -ClientName $testclients -Install -CredentialObject $creds -RunTaskAfterCreation -SendNotification -ShowError -UseADGroups $TestGroup -Verbose
     Start-Sleep -Seconds 10
     #Get-Applicaties -ClientName $testclients -DisplayName *TeleQ*
 
+    Write-Host "Removing applications for $TestGroup on $testclients(SendNotification + Verbose)"
     Install-Application -ClientName $testclients -Remove -CredentialObject $creds -RunTaskAfterCreation -SendNotification -ShowError -UseADGroups $TestGroup -Verbose
     Start-Sleep -Seconds 10
     #Get-Applicaties -ClientName $testclients -DisplayName *TeleQ*
