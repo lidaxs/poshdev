@@ -1,10 +1,14 @@
 ﻿<#
+    version 1.0.3.4
+    added tests to script outside function
+    can be called like pathto\Install-Application -TestGroup <GroupName> -RunTests
+    
     version 1.0.3.3
     removed validate credentials
     Cannot find type [System.DirectoryServices.AccountManagement.ContextType]::Domain
     added parametersetname 'Notify'
     ordered parameters differently
-    
+
     version 1.0.3.2
     todo error handling
     
@@ -33,9 +37,12 @@
     automatic removal of tasks after a given period of time
     parametersets...done
     more info in mail regarding installation/version etc.
-    different ordering in parameter...done because of the introduction of parametersets
+    different ordering in parameter...done because of the introduction of parametersets but undone by dynamic param
 #>
-
+param(
+        [String[]]$TestGroup,
+        [Switch]$RunTests
+    )
 # load assemblies...needed for ADS Class (credential validation)
 [reflection.assembly]::LoadWithPartialName("System.DirectoryServices.AccountManagement") | Out-Null
 
@@ -680,7 +687,10 @@ function Install-Application
     }
 } # end function
 
-
+if(-not ($TestGroup))
+{
+    $TestGroup = "L-APP-AdobeFlashActiveX"
+}
 if($RunTests)
 {
     . '\\srv-fs01\Scripts$\ps\Get-Applicaties.ps1'
@@ -690,27 +700,27 @@ if($RunTests)
         $creds=Get-Credential -UserName $env:USERDOMAIN\$env:USERNAME -Message "Enter your credentials"
     }
 
-    Install-Application -ClientName $testclients -Install -RunAsSystem -RunTaskAfterCreation -ShowError -UseADGroups L-APP-TeleQ
+    Install-Application -ClientName $testclients -Install -RunAsSystem -RunTaskAfterCreation -ShowError -UseADGroups $TestGroup
     Start-Sleep -Seconds 10
-    Get-Applicaties -ClientName $testclients -DisplayName *TeleQ*
+    #Get-Applicaties -ClientName $testclients -DisplayName *TeleQ*
 
-    Install-Application -ClientName $testclients -Remove -RunAsSystem -RunTaskAfterCreation -ShowError -UseADGroups L-APP-TeleQ
+    Install-Application -ClientName $testclients -Remove -RunAsSystem -RunTaskAfterCreation -ShowError -UseADGroups $TestGroup
     Start-Sleep -Seconds 10
-    Get-Applicaties -ClientName $testclients -DisplayName *TeleQ*
+    #Get-Applicaties -ClientName $testclients -DisplayName *TeleQ*
 
-    Install-Application -ClientName $testclients -Install -CredentialObject $creds -RunTaskAfterCreation -ShowError -UseADGroups L-APP-TeleQ
+    Install-Application -ClientName $testclients -Install -CredentialObject $creds -RunTaskAfterCreation -ShowError -UseADGroups $TestGroup
     Start-Sleep -Seconds 10
-    Get-Applicaties -ClientName $testclients -DisplayName *TeleQ*
+    #Get-Applicaties -ClientName $testclients -DisplayName *TeleQ*
 
-    Install-Application -ClientName $testclients -Remove -CredentialObject $creds -RunTaskAfterCreation -ShowError -UseADGroups L-APP-TeleQ
+    Install-Application -ClientName $testclients -Remove -CredentialObject $creds -RunTaskAfterCreation -ShowError -UseADGroups $TestGroup
     Start-Sleep -Seconds 10
-    Get-Applicaties -ClientName $testclients -DisplayName *TeleQ*
+    #Get-Applicaties -ClientName $testclients -DisplayName *TeleQ*
 
-    Install-Application -ClientName $testclients -Install -CredentialObject $creds -RunTaskAfterCreation -SendNotification -ShowError -UseADGroups L-APP-TeleQ -Verbose
+    Install-Application -ClientName $testclients -Install -CredentialObject $creds -RunTaskAfterCreation -SendNotification -ShowError -UseADGroups $TestGroup -Verbose
     Start-Sleep -Seconds 10
-    Get-Applicaties -ClientName $testclients -DisplayName *TeleQ*
+    #Get-Applicaties -ClientName $testclients -DisplayName *TeleQ*
 
-    Install-Application -ClientName $testclients -Remove -CredentialObject $creds -RunTaskAfterCreation -SendNotification -ShowError -UseADGroups L-APP-TeleQ -Verbose
+    Install-Application -ClientName $testclients -Remove -CredentialObject $creds -RunTaskAfterCreation -SendNotification -ShowError -UseADGroups $TestGroup -Verbose
     Start-Sleep -Seconds 10
-    Get-Applicaties -ClientName $testclients -DisplayName *TeleQ*
+    #Get-Applicaties -ClientName $testclients -DisplayName *TeleQ*
 }
