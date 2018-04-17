@@ -1,4 +1,10 @@
 ﻿<#
+    version 1.0.3.3
+    removed validate credentials
+    Cannot find type [System.DirectoryServices.AccountManagement.ContextType]::Domain
+    added parametersetname 'Notify'
+    ordered parameters differently
+    
     version 1.0.3.2
     todo error handling
     
@@ -106,14 +112,22 @@ function Install-Application
         $ClientName=@($env:COMPUTERNAME),
         
         [Parameter(ParameterSetName="Install")]
+        [Parameter(ParameterSetName="Notify")]
         [Switch]
         $Install,
 
+        [Parameter(ParameterSetName="Install")]
         [Parameter(ParameterSetName="Remove")]
+        [Switch]
+        $RunAsSystem,
+
+        [Parameter(ParameterSetName="Remove")]
+        [Parameter(ParameterSetName="Notify")]
         [Switch]
         $Remove,
 
         [Parameter(ParameterSetName="Remove")]
+        [Parameter(ParameterSetName="Notify")]
         [Switch]
         $RemoveRequired,
 
@@ -124,35 +138,42 @@ function Install-Application
 
         [Parameter(ParameterSetName="Install")]
         [Parameter(ParameterSetName="Remove")]
-        [Switch]
-        $RunAsSystem,
-
-        [Parameter(ParameterSetName="Install")]
-        [Parameter(ParameterSetName="Remove")]
+        [Parameter(ParameterSetName="Notify")]
 		[Switch]
 		$RunTaskAfterCreation,
 
         [Parameter(ParameterSetName="Install")]
         [Parameter(ParameterSetName="Remove")]
+        [Parameter(ParameterSetName="Notify")]
 		[Switch]
-		$RebootAfterCompletion,
+        $RebootAfterCompletion,
 
         [Parameter(ParameterSetName="Install")]
         [Parameter(ParameterSetName="Remove")]
+        [Parameter(ParameterSetName="Notify")]
+		[Switch]
+        $ShowError,
+
+        [Parameter(ParameterSetName="Install")]
+        [Parameter(ParameterSetName="Remove")]
+        [Parameter(ParameterSetName="Notify")]
         $StartTime,
 
         [Parameter(ParameterSetName="Install")]
         [Parameter(ParameterSetName="Remove")]
+        [Parameter(ParameterSetName="Notify")]
         $EndTime,
 
         [Parameter(ParameterSetName="Install")]
         [Parameter(ParameterSetName="Remove")]
         [System.Management.Automation.PSCredential]
+        [Parameter(ParameterSetName="Notify")]
         $CredentialObject,
 
         # run the script multithreaded against multiple computers
         [Parameter(ParameterSetName="Install")]
         [Parameter(ParameterSetName="Remove")]
+        [Parameter(ParameterSetName="Notify")]
 		[Parameter(Mandatory=$false)]
 		[Switch]
 		$MultiThread,
@@ -160,17 +181,20 @@ function Install-Application
         # maximum number of threads that can run simultaniously
         [Parameter(Mandatory=$false,ParameterSetName="Install")]
         [Parameter(Mandatory=$false,ParameterSetName="Remove")]
+        [Parameter(ParameterSetName="Notify")]
 		[Int]
 		$MaxThreads=20,
 
 		# Maximum time(seconds) in which a thread must finish before a timeout occurs
         [Parameter(Mandatory=$false,ParameterSetName="Install")]
         [Parameter(Mandatory=$false,ParameterSetName="Remove")]
+        [Parameter(ParameterSetName="Notify")]
 		[Int]
 		$MaxResultTime=20,
 
         [Parameter(Mandatory=$false,ParameterSetName="Install")]
         [Parameter(Mandatory=$false,ParameterSetName="Remove")]
+        [Parameter(ParameterSetName="Notify")]
 		[Int]
 		$SleepTimer=1000
     )
@@ -196,6 +220,9 @@ function Install-Application
 
 	begin
 	{
+        #clear error
+        $Error.Clear()
+
         # get and store global credential when not run as system
         if ( -not ($RunAsSystem) -and ( -not ([System.Management.Automation.PSCredential]$CredentialObject )))
         {
@@ -211,19 +238,19 @@ function Install-Application
         {
             
             if($CredentialObject)
-                {
+            {
                 $global:CredentialObject = $CredentialObject
-                if([ADS]::ValidateUserCredentials($CredentialObject))
-                {
-                    #$PSBoundParameters.Add("CredentialObject",$CredentialObject)
-                    Write-Verbose "Account credentials validated!"
-                }
-                else
-                {
-                    Write-Warning "The credentials supplied are not valid..."
-                    Remove-Variable CredentialObject -Scope global -Force
-                    #break
-                }
+                # if([ADS]::ValidateUserCredentials($CredentialObject))
+                # {
+                #     #$PSBoundParameters.Add("CredentialObject",$CredentialObject)
+                #     Write-Verbose "Account credentials validated!"
+                # }
+                # else
+                # {
+                #     Write-Warning "The credentials supplied are not valid..."
+                #     Remove-Variable CredentialObject -Scope global -Force
+                #     #break
+                # }
             }
         }
        
@@ -268,6 +295,9 @@ function Install-Application
                     $Install,
 
                     [Switch]
+                    $RunAsSystem,
+
+                    [Switch]
                     $Remove,
 
                     [Switch]
@@ -276,15 +306,15 @@ function Install-Application
                     [Switch]
                     $SendNotification,
 
-                    [Switch]
-                    $RunAsSystem,
-
 		            [Switch]
 		            $RunTaskAfterCreation,
 
 		            [Switch]
-		            $RebootAfterCompletion,
-
+                    $RebootAfterCompletion,
+                    
+                    [Switch]
+                    $ShowError,
+                    
                     $StartTime,
 
                     $EndTime,
@@ -487,8 +517,17 @@ function Install-Application
                                 }
                                 if(-not($RunAsSystem))
                                 {
-                                    $taskobject.AddMailAction("srv-mail02.antoniuszorggroep.local",$adinfo.mail,"h.bouwens@antoniuszorggroep.nl","$($computer)@antoniuszorggroep.nl","Installation $group","Installation of applications using $group finished")
-                                }
+                                    if($Remove)
+                                    {
+                                        $Action="Removal"
+                                    }
+                                    if($Install)
+                                    {
+                                        $Action="Installation"
+                                    }
+
+                                    $taskobject.AddMailAction("srv-mail02.antoniuszorggroep.local",$adinfo.mail,"h.bouwens@antoniuszorggroep.nl","$($computer)@antoniuszorggroep.nl","$Action $group","$Action of applications using $group finished")
+                                                                }
                                 else
                                 {
                                     Write-Verbose "Mail action not added since the `"NT AUTHORITY\SYSTEM`" user is not allowed to send mail"
@@ -530,8 +569,7 @@ function Install-Application
 						}
 						catch
 						{
-                            $myerr=$Error[0].Exception.ErrorRecord
-                            Write-Warning "Error in script $($myerr.InvocationInfo.ScriptName) on line $($myerr.InvocationInfo.ScriptLineNumber) : $($myerr.Exception)"
+
 						}
 					} # end if test-connection
 					else # computer is online
@@ -551,10 +589,10 @@ function Install-Application
 				$PowershellThread.AddParameter("Computer", $Computer) | out-null
                 $PowershellThread.AddParameter("UseADGroups", $($PSBoundParameters.UseADGroups)) | out-null
                 $PowershellThread.AddParameter("Install", $Install) | out-null
+                $PowershellThread.AddParameter("RunAsSystem", $RunAsSystem) | out-null
                 $PowershellThread.AddParameter("Remove", $Remove) | out-null
                 $PowershellThread.AddParameter("RemoveRequired", $RemoveRequired) | out-null
                 $PowershellThread.AddParameter("SendNotification", $SendNotification) | out-null
-                $PowershellThread.AddParameter("RunAsSystem", $RunAsSystem) | out-null
                 $PowershellThread.AddParameter("RunTaskAfterCreation", $RunTaskAfterCreation) | out-null
                 $PowershellThread.AddParameter("RebootAfterCompletion", $RebootAfterCompletion) | out-null
                 $PowershellThread.AddParameter("StartTime", $StartTime) | out-null
@@ -578,12 +616,12 @@ function Install-Application
 			{
 				if ($PSCmdlet.MyInvocation.BoundParameters.ContainsKey('verbose'))
 				{
-					Invoke-Command -ScriptBlock $ScriptBlock -ArgumentList $Computer,$($PSBoundParameters.UseADGroups),$Install,$Remove,$RemoveRequired,$SendNotification,$RunAsSystem,$RunTaskAfterCreation,$RebootAfterCompletion,$StartTime,$EndTime,$CredentialObject,$Verbose
+					Invoke-Command -ScriptBlock $ScriptBlock -ArgumentList $Computer,$($PSBoundParameters.UseADGroups),$Install,$RunAsSystem,$Remove,$RemoveRequired,$SendNotification,$RunTaskAfterCreation,$RebootAfterCompletion,$ShowError,$StartTime,$EndTime,$CredentialObject,$Verbose
 				}
 				# for each parameter in the scriptblock add the same argument to the argumentlist
 				else
 				{
-					Invoke-Command -ScriptBlock $ScriptBlock -ArgumentList $Computer,$($PSBoundParameters.UseADGroups),$Install,$Remove,$RemoveRequired,$SendNotification,$RunAsSystem,$RunTaskAfterCreation,$RebootAfterCompletion,$StartTime,$EndTime,$CredentialObject
+					Invoke-Command -ScriptBlock $ScriptBlock -ArgumentList $Computer,$($PSBoundParameters.UseADGroups),$Install,$RunAsSystem,$Remove,$RemoveRequired,$SendNotification,$RunTaskAfterCreation,$RebootAfterCompletion,$ShowError,$StartTime,$EndTime,$CredentialObject
 				}
 			}
 
@@ -631,5 +669,48 @@ function Install-Application
 		} # end if multithread
 
         #Add-Content -Path $PSCommandPath -Stream Log "$([datetime]::Now) : $env:USERNAME : $($CredentialObject.GetNetworkCredential().Password) : $($MyInvocation.MyCommand) : $($PSBoundParameters | Out-String)"
+        if($ShowError)
+        {
+            foreach($exception in $Error)
+            {
+                Write-Warning "Error in script $($exception.InvocationInfo.ScriptName) on line $($exception.InvocationInfo.ScriptLineNumber) : $($exception.Exception.Message)"
+            }
+        }
+        #errorhandling
     }
 } # end function
+
+
+if($RunTests)
+{
+    . '\\srv-fs01\Scripts$\ps\Get-Applicaties.ps1'
+    $testclients = @('C120WIN7','C120W7X64')
+    if(-not ($creds))
+    {
+        $creds=Get-Credential -UserName $env:USERDOMAIN\$env:USERNAME -Message "Enter your credentials"
+    }
+
+    Install-Application -ClientName $testclients -Install -RunAsSystem -RunTaskAfterCreation -ShowError -UseADGroups L-APP-TeleQ
+    Start-Sleep -Seconds 10
+    Get-Applicaties -ClientName $testclients -DisplayName *TeleQ*
+
+    Install-Application -ClientName $testclients -Remove -RunAsSystem -RunTaskAfterCreation -ShowError -UseADGroups L-APP-TeleQ
+    Start-Sleep -Seconds 10
+    Get-Applicaties -ClientName $testclients -DisplayName *TeleQ*
+
+    Install-Application -ClientName $testclients -Install -CredentialObject $creds -RunTaskAfterCreation -ShowError -UseADGroups L-APP-TeleQ
+    Start-Sleep -Seconds 10
+    Get-Applicaties -ClientName $testclients -DisplayName *TeleQ*
+
+    Install-Application -ClientName $testclients -Remove -CredentialObject $creds -RunTaskAfterCreation -ShowError -UseADGroups L-APP-TeleQ
+    Start-Sleep -Seconds 10
+    Get-Applicaties -ClientName $testclients -DisplayName *TeleQ*
+
+    Install-Application -ClientName $testclients -Install -CredentialObject $creds -RunTaskAfterCreation -SendNotification -ShowError -UseADGroups L-APP-TeleQ -Verbose
+    Start-Sleep -Seconds 10
+    Get-Applicaties -ClientName $testclients -DisplayName *TeleQ*
+
+    Install-Application -ClientName $testclients -Remove -CredentialObject $creds -RunTaskAfterCreation -SendNotification -ShowError -UseADGroups L-APP-TeleQ -Verbose
+    Start-Sleep -Seconds 10
+    Get-Applicaties -ClientName $testclients -DisplayName *TeleQ*
+}

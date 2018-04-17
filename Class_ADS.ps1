@@ -544,7 +544,8 @@ ADS([String]$ObjectCategory,[String]$ObjectName) : base() {
 
     [Boolean] static ValidateUserCredentials([System.Management.Automation.PSCredential]$CredentialObject)
     {
-        $contexttype = New-Object [System.DirectoryServices.AccountManagement.ContextType]::Domain
+        Add-Type -AssemblyName System.DirectoryServices.AccountManagement
+        $contexttype = [System.DirectoryServices.AccountManagement.ContextType]::Domain
         $principalcontext = New-Object -TypeName System.DirectoryServices.AccountManagement.PrincipalContext -ArgumentList $contexttype, "antoniuszorggroep.local", "DC=antoniuszorggroep,DC=local"
         return $principalcontext.ValidateCredentials($CredentialObject.GetNetworkCredential().UserName,$CredentialObject.GetNetworkCredential().Password)
     }
