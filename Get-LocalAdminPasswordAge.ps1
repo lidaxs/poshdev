@@ -1,4 +1,7 @@
 <#
+	version 1.0.0.1
+	test input
+
 	version 1.0.0.0
 	initial upload
 #>
@@ -27,10 +30,10 @@ function Get-LocalAdminPasswordAge {
 			Time to wait between checks if thread has finished
 
 		.EXAMPLE
-			PS C:\> New-Script -ClientName C120VMXP,C120WIN7
+			PS C:\> Get-LocalAdminPasswordAge -ClientName C120VMXP,C120WIN7
 
 		.EXAMPLE
-			PS C:\> $mycollection | New-Script
+			PS C:\> $mycollection | Get-LocalAdminPasswordAge
 
 		.INPUTS
 			System.String,System.String[]
@@ -51,7 +54,7 @@ function Get-LocalAdminPasswordAge {
 	[OutputType([System.Object])]
 	param(
 		[Parameter(Mandatory=$false,ValueFromPipeline=$true,ValueFromPipelineByPropertyName=$true)]
-		[Alias("PSComputerName","CN","MachineName","Workstation","ServerName","HostName","ComputerName","Name")]
+		[Alias("Name","CN","PSComputerName","MachineName","Workstation","ServerName","HostName","ComputerName")]
 		[ValidateNotNullOrEmpty()]
         $ClientName=@($env:COMPUTERNAME),
         
@@ -80,6 +83,7 @@ function Get-LocalAdminPasswordAge {
 	
 	begin
 	{
+		if($ClientName.Name){$ClientName=$ClientName.Name}
 		if ($MultiThread)
 		{
 			Write-Verbose "Creating Default Initial Session State"
@@ -100,8 +104,8 @@ function Get-LocalAdminPasswordAge {
 		# loop through collection
 		ForEach($Computer in $ClientName)
 		{
-
-			if($PSCmdlet.ShouldProcess("$Computer", "Verb-Noun"))
+			if($Computer.Name){$Computer=$Computer.Name}
+			if($PSCmdlet.ShouldProcess("$Computer", "Get-LocalAdminPasswordAge"))
 			{
 
 				$ScriptBlock=
@@ -114,49 +118,53 @@ function Get-LocalAdminPasswordAge {
                     [String]
                     $LocalAccountName
 				)
+
+					try
+					{
+						$adc = [adsisearcher]"CN=$($Computer)"
+						$adc.PropertiesToLoad.AddRange(@("lastlogontimestamp"))
+						$adc.SearchRoot = [ADSI]"LDAP://OU=Werkstations,OU=AZG,DC=antoniuszorggroep,DC=local"
+						$lastad = $adc.FindOne()
+
+						$output = New-Object -TypeName PSObject -Property @{
+							ComputerName = $Computer
+							Account = $LocalAccountName
+							PasswordAge = 'Unknown'
+							LastLogonAD =  [datetime]::FromFileTime($lastad.Properties["lastlogontimestamp"][0])
+						}
+
+					}
+					catch
+					{
+						Write-Verbose "$Computer not found in Active Directory under OU=Werkstations,OU=AZG,DC=antoniuszorggroep,DC=local"
+					}
+
 					# Test connectivity
 					if ((Get-WmiObject -Query "Select * From Win32_PingStatus Where (Address='$Computer') and timeout=1000").StatusCode -eq 0) 
 					{
 						#the code to execute in each thread
 						try
 						{
-                            $age = [System.Math]::Round([int]([adsi]"WinNT://$Computer/$LocalAccountName,user").passwordage.value/86400)
-                            $adc = [adsisearcher]"CN=$($Computer)"
-                            $adc.PropertiesToLoad.AddRange(@("lastlogontimestamp"))
-                            $adc.SearchRoot = [ADSI]"LDAP://OU=Werkstations,OU=AZG,DC=antoniuszorggroep,DC=local"
-                            $lastad = $adc.FindOne()
-                            $output = New-Object -TypeName PSObject -Property @{
-                                Computername = $Computer
-                                Account = $LocalAccountName
-                                PasswordAge = $age
-                                LastLogonAD =  [datetime]::FromFileTime($lastad.Properties["lastlogontimestamp"][0])
-                            }
+                            $output.PasswordAge =([System.Math]::Round([int]([adsi]"WinNT://$Computer/$LocalAccountName,user").passwordage.value/86400)).ToString()
 						}
 						catch
 						{
-                        }
-                        $output
+						}
+						
+						
+						
 					} # end if test-connection
+					
 					else # computer is online
 					{
 						Write-Warning "$Computer is not online!"
                     }
-                    
+                    $output | Select-Object ComputerName,PasswordAge,LastLogonAD,Account
 				} # end scriptblock
 
 
 			} # end if $PSCmdlet.ShouldProcess
 
-			####
-			# you can add other parameters and they should correspond with the parameters defined in the $ScriptBlock
-			#$PowershellThread.AddParameter("AnotherParameter", $AnotherParameter) | out-null
-			#param
-			#	(
-			#		[String]
-			#		$Computer,
-			#		$AnotherParameter
-			#	)
-			####
 
 			if ($MultiThread)
 			{
