@@ -1,4 +1,8 @@
 <#
+	version 1.2.5.1
+	aliases not working as expected when using pipeline and piping different types of objects
+	added if($Computer.Name){$Computer=$Computer.Name} in processblock
+	
 	version 1.2.5.0
 	test connectivity now with wmi in Get-Memory and Get-WindowsUpdates
 	removed test-online function
@@ -779,7 +783,7 @@ function Get-WindowsUpdates
 		# loop through collection
 		ForEach($Computer in $ClientName)
 		{
-
+			if($Computer.Name){$Computer=$Computer.Name}
 			if($PSCmdlet.ShouldProcess("$Computer", "Get-WindowsUpdates"))
 			{
 				#Write-Verbose "Workstation $Computer is online..."
