@@ -1,4 +1,8 @@
 <#
+    version 1.0.6.1
+    aliases not working as expected when using pipeline and piping different types of objects
+    added if($Computer.Name){$Computer=$Computer.Name} in processblock
+    
     version 1.0.6
     Renamed function scan-port to test-ports
 
@@ -221,7 +225,11 @@ function Test-Ports
 	process 
 	{
 		foreach($Computer in $ClientName)
-		{$note=New-Object PSObject | Select-Object ComputerName,RemoteIP
+		{
+
+            if($Computer.Name){$Computer=$Computer.Name}
+
+            $note=New-Object PSObject | Select-Object ComputerName,RemoteIP
 			Write-Verbose "Scanning host $Computer"
 			ForEach ( $Port in $Ports )
             {
