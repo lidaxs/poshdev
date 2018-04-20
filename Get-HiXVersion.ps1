@@ -1,4 +1,8 @@
 ﻿<#
+	version 1.0.0.2
+	aliases not working as expected when using pipeline and piping different types of objects
+	added if($Computer.Name){$Computer=$Computer.Name} in processblock
+	
 	version 1.0.0.1
 	test connectivity now with wmi
 	
@@ -98,6 +102,8 @@ Function Get-HiXVersion {
 
 		# add -Whatif and -Confirm support to the CmdLet
 		if($PSCmdlet.ShouldProcess("$ClientName", "Get-HiXVersion")){
+
+			if($Computer.Name){$Computer=$Computer.Name}
 
 			# loop through collection $ComputerName
 			ForEach($Computer in $ClientName){
