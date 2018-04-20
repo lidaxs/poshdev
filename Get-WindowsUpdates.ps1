@@ -1,4 +1,8 @@
 <#
+	version 1.2.6.0
+	filter out SQL updates when run from taskengine
+	invoke sql updates when run from explorer
+
 	version 1.2.5.3
 	added scantime to output
 	
@@ -194,7 +198,24 @@ function Start-ProcessingPatchFiles
                             $patch_arguments="/uninstall","/q","/norestart"
                         }
                         
-                    }
+					}
+					elseif ($FilePath -match "SQL")
+					{
+						# find out if we are running from explorer or taskengine
+						$ParentProcessName = (Get-WmiObject -Class Win32_Process -Filter "ProcessID='$PID'").ParentProcessID | ForEach-Object {Get-Process -Id $_ | Select-Object -ExpandProperty Name}
+						if($ParentProcessName -eq  "explorer")
+						{
+							$procname=$null
+							Write-Host "Starting $FilePath manually"
+							#Invoke-Item $FilePath
+							Start-Process -FilePath $($FilePath) -Wait
+						}
+						if($ParentProcessName -eq  "taskeng")
+						{
+							Write-Host "Skipping $FilePath"
+							$procname=$null
+						}
+					}
                     else
                     {
                         if ($Operation -eq 'Install') {
