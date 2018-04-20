@@ -1,4 +1,8 @@
 ﻿<#
+    version 1.0.4.5
+    aliases not working as expected when using pipeline and piping different types of objects
+	added if($Computer.Name){$Computer=$Computer.Name} in processblock
+
     version 1.0.4.4
     added some verbosing in testrun
 
@@ -287,6 +291,7 @@ function Install-Application
 		# loop through collection
 		ForEach($Computer in $ClientName)
 		{
+            if($Computer.Name){$Computer=$Computer.Name}
 
 			if($PSCmdlet.ShouldProcess("$Computer", "Install-Application"))
 			{
