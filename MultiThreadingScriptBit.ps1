@@ -1,4 +1,8 @@
 ﻿<#
+	version 1.0.0.1
+	aliases not working as expected when using pipeline and piping different types of objects
+	added if($Computer.Name){$Computer=$Computer.Name} in processblock
+	
 	version 1.0.0.0
 	initial upload
 #>
@@ -98,7 +102,9 @@ function New-Script {
 		ForEach($Computer in $ClientName)
 		{
 
-			if($PSCmdlet.ShouldProcess("$Computer", "Verb-Noun"))
+			if($Computer.Name){$Computer=$Computer.Name}
+
+			if($PSCmdlet.ShouldProcess("$Computer", "New-Script"))
 			{
 
 				$ScriptBlock=
