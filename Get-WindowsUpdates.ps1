@@ -1,4 +1,10 @@
 <#
+	version 1.2.5.3
+	added scantime to output
+	
+	version 1.2.5.2
+	updated Synopsis in Get-WindowsUpdates
+
 	version 1.2.5.1
 	aliases not working as expected when using pipeline and piping different types of objects
 	added if($Computer.Name){$Computer=$Computer.Name} in processblock
@@ -672,12 +678,6 @@ function Get-WindowsUpdates
 		.PARAMETER MultiThread
 			Enable multithreading
 
-		.PARAMETER IncludeOfficeUpdates
-			Includes officeupdates in result
-
-		.PARAMETER IncludeSQLUpdates
-			Includes SQLupdates in result
-
 		.PARAMETER MaxThreads
 			Maximum number of threads to run simultaneously
 
@@ -842,6 +842,12 @@ function Get-WindowsUpdates
 
 						$UpdateClassification=$ClassificationTypes2GUID[$UpdateType]
 
+						# scantime
+						$scantime = @{
+							Name = 'ScanTime'
+							Expression = {[System.Management.ManagementDateTimeConverter]::ToDateTime($_.ScanTime)}
+						}
+
 						#the code to execute in each thread
 						try
 						{
@@ -883,7 +889,6 @@ function Get-WindowsUpdates
                             	$qry="$qry And (Bulletin = `'$tempqry`')"
 							}
 
-								
                             try
                             {
                             	#$computer=$env:COMPUTERNAME
@@ -924,7 +929,7 @@ function Get-WindowsUpdates
 								}
 
 								#$output=$result | Where-Object {(-not ([System.String]::IsNullOrEmpty($_.FilePath))) -and ($_.ProductID -ne "UpdateRollUps")} | Select-Object PSComputerName,Article,Bulletin,ProductID,Title,UniqueId,Status,FilePath
-								$output=$result | Where-Object {(-not ([System.String]::IsNullOrEmpty($_.FilePath)))} | Select-Object PSComputerName,Article,Bulletin,ProductID,Title,UniqueId,Status,FilePath
+								$output=$result | Where-Object {(-not ([System.String]::IsNullOrEmpty($_.FilePath)))} | Select-Object PSComputerName,Article,Bulletin,ProductID,Title,UniqueId,Status,FilePath,$scantime
 
 							}
                                 #productid zie.... https://msdn.microsoft.com/en-us/library/windows/desktop/ff357803(v=vs.85).aspx
@@ -932,7 +937,8 @@ function Get-WindowsUpdates
 							else
 							{
 								#$output=$result | Where-Object {$_.ProductID -ne "UpdateRollUps"} | Select-Object PSComputerName,Article,Bulletin,ProductID,Title,UniqueId,Status
-								$output=$result | Select-Object PSComputerName,Article,Bulletin,ProductID,Title,UniqueId,Status
+
+								$output=$result | Select-Object PSComputerName,Article,Bulletin,ProductID,Title,UniqueId,Status,$scantime
 							}
  
 							$output
