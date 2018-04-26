@@ -1,4 +1,7 @@
 <#
+    version 1.0.1.0
+    added ToHashTable
+    
     version 1.0.0.0
     first upload
 #>
@@ -61,4 +64,74 @@ Function StringToByteArray {
     $charArray = $String.ToCharArray()
     foreach ($char in $charArray) {$byteArray += [convert]::ToByte($char)}
     return $byteArray
+}
+
+function ToHashTable
+{
+    [CmdletBinding()]
+    [Alias()]
+    [OutputType([System.Collections.HashTable])]
+    Param
+    (
+        # Param1 help description
+        [Parameter(Mandatory=$true,
+                   ValueFromPipelineByPropertyName=$true,
+                   Position=0)]
+        $InputObject
+
+    )
+
+    Begin
+    {
+        #$InputObject.GetType()
+    }
+    Process
+    {
+        foreach($item in $inputobject)
+        {
+            #$item.GetType()
+            if($item.GetType().Name -eq 'PSCustomObject')
+            {
+                [System.Collections.Hashtable]$out=@{}
+                foreach($thing in $item.psobject.properties)
+                {
+                    $out.Add($($thing.Name),$($thing.Value))
+                    #Write-Host "$($thing) : $($thing.Value)"
+                }
+
+                Write-Output $out
+            }
+
+            if($item.GetType().Name -eq 'HashTable')
+            {
+                Write-Output $item
+            }
+
+            if($item.GetType().BaseType.Name -eq "ValueType")
+            {
+                $out=@{}
+                $out.Add($item.GetType().Name,$item)
+                Write-Output $out
+            }
+
+            if($item.GetType().Name -like "String*")
+            {
+                $out=@{}
+                $out.Add($item.GetType().Name,$item)
+                Write-Output $out
+            }
+
+            if($item.GetType().Name -eq "ManagementObject")
+            {
+                $out=@{}
+                foreach($property in $item.properties){
+                    $out.Add($property.Name,$property.Value)
+                }
+                Write-Output $out
+            }
+        }
+    }
+    End
+    {
+    }
 }
