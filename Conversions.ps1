@@ -1,7 +1,7 @@
 <#
     version 1.0.1.0
     added ToHashTable
-    
+
     version 1.0.0.0
     first upload
 #>
@@ -66,14 +66,13 @@ Function StringToByteArray {
     return $byteArray
 }
 
-function ToHashTable
+Function ToHashTable
 {
     [CmdletBinding()]
     [Alias()]
     [OutputType([System.Collections.HashTable])]
     Param
     (
-        # Param1 help description
         [Parameter(Mandatory=$true,
                    ValueFromPipelineByPropertyName=$true,
                    Position=0)]
@@ -133,5 +132,60 @@ function ToHashTable
     }
     End
     {
+    }
+}
+
+function ToPSCustom {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory=$true,    
+        ValueFromPipelineByPropertyName = $true,
+        ValueFromPipeline = $true,
+        Position=0
+        )]
+        $InputObject
+    )
+    
+    begin {
+        
+    }
+    
+    process {
+        
+        foreach ($item in $InputObject) {
+            if ($item.GetType().Name -eq 'HashTable') {
+                $out=New-Object -TypeName psobject -Property $item
+                $out 
+            }
+            if ($item.GetType().Name -eq 'DataRow') {
+                #Write-Output "DataRow"
+                #[PSCustomObject]$item
+                [PSCustomObject]$out=@{}
+                foreach ($column in $item.Table.Columns) {
+                    Add-Member -InputObject $out -MemberType NoteProperty -Name $column.ColumnName -Value $item.$column.ColumnName
+                }
+
+                $out
+
+            }
+            if ($item.GetType().Name -eq 'PSCustomObject') {
+                $item
+            }
+            if ($item.GetType().Name -eq 'ManagementObject')
+            {
+                $out=New-Object -TypeName PSCustomObject
+                foreach ($prop in $item.properties)
+                {
+
+                    Add-Member -InputObject $out -MemberType NoteProperty -Name $($prop.Name) -Value $($prop.Value) -Force
+                }
+
+                Write-Output $out
+            
+            }
+        }
+    }
+    
+    end {
     }
 }
