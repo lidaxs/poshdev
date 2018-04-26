@@ -1,4 +1,7 @@
 <#
+    version 1.0.2.0
+    added ToPSCustom
+
     version 1.0.1.0
     added ToHashTable
 
