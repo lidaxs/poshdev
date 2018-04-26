@@ -1,4 +1,7 @@
 <#
+	version 1.2.6.1
+	build try-catch block in Start-ProcessingPatchFiles
+	
 	version 1.2.6.0
 	filter out SQL updates when run from taskengine
 	invoke sql updates when run from explorer
@@ -237,8 +240,10 @@ function Start-ProcessingPatchFiles
                 #endregion
 
                 #region Start and evaluating patchprocess
+				try
+				{
+					$processinfo=Invoke-PatchProcess -ProcessName $procname -Argument $patch_arguments
 
-                    $processinfo=Invoke-PatchProcess -ProcessName $procname -Argument $patch_arguments
                     #if($exitcode.GetType().Name -eq "Object[]"){Write-Host "Object";$exitcode=$exitcode | Select -expa ExitCode}
                     if($processinfo[1] -eq 0){
                         $message="`'$File`' succesfully processed!"
@@ -281,9 +286,15 @@ function Start-ProcessingPatchFiles
                     else{
                         $message="Installation of `'$File`' failed with exitcode $($processinfo[1])"
                         #$exitcode | Select ExitCode
-                    }
-                    
-                    Write-Verbose $message
+					}
+
+					Write-Verbose $message
+
+				}
+				catch
+				{
+
+				}
                     
                 #endregion
                 
