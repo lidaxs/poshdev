@@ -1,7 +1,10 @@
 <#
+    version 1.0.4.0
+    added ToHex
+    
     version 1.0.3.0
     added ConvertFrom-ErrorRecord
-    
+
     version 1.0.2.0
     added ToPSCustom
 
@@ -228,4 +231,41 @@ function ConvertFrom-ErrorRecord
       Write-Warning "$Alien"
     } 
   }
+}
+
+
+function ToHex {
+    [CmdletBinding()]
+    param(
+        # Parameter help description
+        [Parameter(Mandatory=$true, ValueFromPipeline = $true)]
+        [long[]]
+        $InputObject,
+
+        [Int]
+        $Length = 8,
+
+        [Switch]
+        $UsePrefix
+    )
+
+    begin
+    {
+        $Prefix= ""
+    }
+
+    process
+    {
+        foreach ($item in $InputObject) {
+            if($UsePrefix){$Prefix = "0x"}
+            $hex ="$Prefix{0:X$Length}" -f $item
+            $hex
+        }
+        
+    }
+
+    end
+    {
+
+    }
 }
