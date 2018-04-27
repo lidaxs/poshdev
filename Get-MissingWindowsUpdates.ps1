@@ -1,4 +1,8 @@
 ﻿<#
+version 1.1.3.1
+aliases not working as expected when using pipeline and piping different types of objects
+added if($Computer.Name){$Computer=$Computer.Name} in processblock
+
 version 1.1.3
 Added Aliases to ClientName parameter to support pipeline in from WMI,SCCM & Active Directory in all functions
 
@@ -669,7 +673,7 @@ function Get-MissingWindowsUpdates
 			$ErrorActionPreference='SilentlyContinue'
 			#if([Quest.ActiveRoles.ArsPowerShellSnapIn.Data.ArsComputerObject]$Computer){$Computer=$Computer.Name}
 			$ErrorActionPreference='Continue'
-
+			if($Computer.Name){$Computer=$Computer.Name}
 			if($PSCmdlet.ShouldProcess("$Computer", "Get-MissingWindowsUpdates"))
 			{
 				Write-Verbose "Workstation $Computer is online..."

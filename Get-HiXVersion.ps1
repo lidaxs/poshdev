@@ -1,8 +1,14 @@
 ﻿<#
+	version 1.0.0.2
+	aliases not working as expected when using pipeline and piping different types of objects
+	added if($Computer.Name){$Computer=$Computer.Name} in processblock
+	
+	version 1.0.0.1
+	test connectivity now with wmi
+	
 	version 1.0.0
 	Initial upload
 	Added Aliases to ClientName parameter to support pipeline in from WMI,SCCM & Active Directory
-
 #>
 Function Get-HiXVersion {
 	<#
@@ -97,11 +103,14 @@ Function Get-HiXVersion {
 		# add -Whatif and -Confirm support to the CmdLet
 		if($PSCmdlet.ShouldProcess("$ClientName", "Get-HiXVersion")){
 
+			if($Computer.Name){$Computer=$Computer.Name}
+
 			# loop through collection $ComputerName
 			ForEach($Computer in $ClientName){
 
 				# test connection to each $Computer
-				if ( Test-Connection -ComputerName $Computer -Count 1 -Quiet -ErrorAction SilentlyContinue) {
+				if ((Get-WmiObject -Query "Select * From Win32_PingStatus Where (Address='$Computer') and timeout=1000").StatusCode -eq 0)
+				{
 
 					Write-Verbose "$Computer is online..."
 

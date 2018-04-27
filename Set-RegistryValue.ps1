@@ -1,4 +1,14 @@
 <#
+	version 1.0.5.3
+	aliases not working as expected when using pipeline and piping different types of objects
+	added if($Computer.Name){$Computer=$Computer.Name} in processblock
+
+	version 1.0.5.2
+	test connection with wmi
+	
+	version 1.0.5.1
+	set default value for dynamic parameter Hive in beginblock and set mandatory to $false
+	
 	version 1.0.5
 	fixed invoke-command(replaced variables $Hive and $Type with $($PSBoundParameters.Hive) and $($PSBoundParameters.Type))
 
@@ -133,7 +143,7 @@ Function Set-RegistryValue {
     DynamicParam
     {          
         $HiveParameterAttributes                   = New-Object System.Management.Automation.ParameterAttribute
-        $HiveParameterAttributes.Mandatory         = $true
+        $HiveParameterAttributes.Mandatory         = $false
         $HiveParameterAttributes.HelpMessage       = "Press `'TAB`' to cycle through the different values"
 		$HiveParameterAttributes.ParameterSetName  = '__AllParameterSets'
 		$HiveAttributeCollection                   = New-Object  System.Collections.ObjectModel.Collection[System.Attribute]
@@ -143,7 +153,7 @@ Function Set-RegistryValue {
 		$HiveRuntimeParameters                     = New-Object System.Management.Automation.RuntimeDefinedParameter('Hive', [System.String[]], $HiveAttributeCollection)
 
         $TypeParameterAttributes                   = New-Object System.Management.Automation.ParameterAttribute
-        $TypeParameterAttributes.Mandatory         = $true
+        $TypeParameterAttributes.Mandatory         = $false
         $TypeParameterAttributes.HelpMessage       = "Press `'TAB`' to cycle through the different typevalues"
 		$TypeParameterAttributes.ParameterSetName  = '__AllParameterSets'
 		$TypeAttributeCollection                   = New-Object  System.Collections.ObjectModel.Collection[System.Attribute]
@@ -158,7 +168,11 @@ Function Set-RegistryValue {
         return  $RuntimeParametersDictionary
 	}
 	begin
-	{
+	{    
+		if ( -not ($PSBoundParameters.Hive))
+		{
+        	$PSBoundParameters.Hive = 'LocalMachine'
+		}
 		if ($MultiThread)
 		{
 			Write-Verbose "Creating Default Initial Session State"
@@ -182,10 +196,12 @@ Function Set-RegistryValue {
 		ForEach($Computer in $ClientName)
         {
 
+			if($Computer.Name){$Computer=$Computer.Name}
+			
 			# Test connectivity
-			if (Test-Connection -ComputerName $Computer -Count 1 -Quiet -ErrorAction SilentlyContinue)
+			if ((Get-WmiObject -Query "Select * From Win32_PingStatus Where (Address='$Computer') and timeout=1000").StatusCode -eq 0) 
             {
-				If($PSCmdLet.ShouldProcess("$ComputerName", "Add-RegistryValue $ValueName with value $Value in hive $Hive in key $Key of type $Type."))
+				If($PSCmdLet.ShouldProcess("$Computer", "Add-RegistryValue $ValueName with value $Value in hive $Hive in key $Key of type $Type."))
                 {
 				    Write-Verbose "Workstation $Computer is online..."
                         $ScriptBlock=

@@ -1,4 +1,11 @@
 <#
+	version 1.0.1.2
+	aliases not working as expected when using pipeline and piping different types of objects
+	added if($Computer.Name){$Computer=$Computer.Name} in processblock
+
+	version 1.0.1.1
+	test connectivity now with wmi
+
 	version 1.0.1
 	todo!! change required scripts in scriptblock
 
@@ -158,8 +165,10 @@ function Update-Hixclient{
 		# Loop through collection
 		ForEach($Computer in $ClientName){
 
+			if($Computer.Name){$Computer=$Computer.Name}
+			
 			# Test connectivity
-			if (Test-Connection -ComputerName $Computer -Count 1 -Quiet -ErrorAction SilentlyContinue)
+			if ((Get-WmiObject -Query "Select * From Win32_PingStatus Where (Address='$Computer') and timeout=1000").StatusCode -eq 0)
 			{
 
 ###

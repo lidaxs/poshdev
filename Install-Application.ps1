@@ -1,4 +1,33 @@
 ﻿<#
+    version 1.0.4.5
+    aliases not working as expected when using pipeline and piping different types of objects
+	added if($Computer.Name){$Computer=$Computer.Name} in processblock
+
+    version 1.0.4.4
+    added some verbosing in testrun
+
+    version 1.0.3.4
+    added tests to script outside function
+    can be called like pathto\Install-Application -TestGroup <GroupName> -RunTests
+
+    version 1.0.3.3
+    removed validate credentials
+    Cannot find type [System.DirectoryServices.AccountManagement.ContextType]::Domain
+    added parametersetname 'Notify'
+    ordered parameters differently
+
+    version 1.0.3.2
+    todo error handling
+    
+    version 1.0.3.2
+    added alias Install-App
+    
+    version 1.0.3.1
+    changed test for connectivity
+
+    version 1.0.3
+    added support for 64-detection of apps
+
     version 1.0.2
     converted parameter UseADGroups to dynamic parameter
     added aliases to parameter ClientName to support pipeline input from WMI, SCCM and Active Directory
@@ -15,9 +44,12 @@
     automatic removal of tasks after a given period of time
     parametersets...done
     more info in mail regarding installation/version etc.
-    different ordering in parameter...done because of the introduction of parametersets
+    different ordering in parameter...done because of the introduction of parametersets but undone by dynamic param
 #>
-
+param(
+        [String[]]$TestGroup,
+        [Switch]$RunTests
+    )
 # load assemblies...needed for ADS Class (credential validation)
 [reflection.assembly]::LoadWithPartialName("System.DirectoryServices.AccountManagement") | Out-Null
 
@@ -83,24 +115,33 @@ function Install-Application
 			about_comment_based_help
 	#>
 	[CmdletBinding(SupportsShouldProcess=$true)]
-	[OutputType([System.Object])]
+    [OutputType([System.Object])]
+    [Alias('Install-App')]
 	param(
         [Parameter(Mandatory=$false,ValueFromPipeline=$true,ParameterSetName="Install")]
         [Parameter(Mandatory=$false,ValueFromPipeline=$true,ParameterSetName="Remove")]
-		[Alias("CN","MachineName","Workstation","ServerName","HostName","ComputerName")]
+		[Alias("Name","PSComputerName","CN","MachineName","Workstation","ServerName","HostName","ComputerName")]
 		[ValidateNotNullOrEmpty()]
 		[System.String[]]
         $ClientName=@($env:COMPUTERNAME),
         
         [Parameter(ParameterSetName="Install")]
+        [Parameter(ParameterSetName="Notify")]
         [Switch]
         $Install,
 
+        [Parameter(ParameterSetName="Install")]
         [Parameter(ParameterSetName="Remove")]
+        [Switch]
+        $RunAsSystem,
+
+        [Parameter(ParameterSetName="Remove")]
+        [Parameter(ParameterSetName="Notify")]
         [Switch]
         $Remove,
 
         [Parameter(ParameterSetName="Remove")]
+        [Parameter(ParameterSetName="Notify")]
         [Switch]
         $RemoveRequired,
 
@@ -111,35 +152,42 @@ function Install-Application
 
         [Parameter(ParameterSetName="Install")]
         [Parameter(ParameterSetName="Remove")]
-        [Switch]
-        $RunAsSystem,
-
-        [Parameter(ParameterSetName="Install")]
-        [Parameter(ParameterSetName="Remove")]
+        [Parameter(ParameterSetName="Notify")]
 		[Switch]
 		$RunTaskAfterCreation,
 
         [Parameter(ParameterSetName="Install")]
         [Parameter(ParameterSetName="Remove")]
+        [Parameter(ParameterSetName="Notify")]
 		[Switch]
-		$RebootAfterCompletion,
+        $RebootAfterCompletion,
 
         [Parameter(ParameterSetName="Install")]
         [Parameter(ParameterSetName="Remove")]
+        [Parameter(ParameterSetName="Notify")]
+		[Switch]
+        $ShowError,
+
+        [Parameter(ParameterSetName="Install")]
+        [Parameter(ParameterSetName="Remove")]
+        [Parameter(ParameterSetName="Notify")]
         $StartTime,
 
         [Parameter(ParameterSetName="Install")]
         [Parameter(ParameterSetName="Remove")]
+        [Parameter(ParameterSetName="Notify")]
         $EndTime,
 
         [Parameter(ParameterSetName="Install")]
         [Parameter(ParameterSetName="Remove")]
         [System.Management.Automation.PSCredential]
+        [Parameter(ParameterSetName="Notify")]
         $CredentialObject,
 
         # run the script multithreaded against multiple computers
         [Parameter(ParameterSetName="Install")]
         [Parameter(ParameterSetName="Remove")]
+        [Parameter(ParameterSetName="Notify")]
 		[Parameter(Mandatory=$false)]
 		[Switch]
 		$MultiThread,
@@ -147,17 +195,20 @@ function Install-Application
         # maximum number of threads that can run simultaniously
         [Parameter(Mandatory=$false,ParameterSetName="Install")]
         [Parameter(Mandatory=$false,ParameterSetName="Remove")]
+        [Parameter(ParameterSetName="Notify")]
 		[Int]
 		$MaxThreads=20,
 
 		# Maximum time(seconds) in which a thread must finish before a timeout occurs
         [Parameter(Mandatory=$false,ParameterSetName="Install")]
         [Parameter(Mandatory=$false,ParameterSetName="Remove")]
+        [Parameter(ParameterSetName="Notify")]
 		[Int]
 		$MaxResultTime=20,
 
         [Parameter(Mandatory=$false,ParameterSetName="Install")]
         [Parameter(Mandatory=$false,ParameterSetName="Remove")]
+        [Parameter(ParameterSetName="Notify")]
 		[Int]
 		$SleepTimer=1000
     )
@@ -183,6 +234,9 @@ function Install-Application
 
 	begin
 	{
+        #clear error
+        $Error.Clear()
+
         # get and store global credential when not run as system
         if ( -not ($RunAsSystem) -and ( -not ([System.Management.Automation.PSCredential]$CredentialObject )))
         {
@@ -198,19 +252,19 @@ function Install-Application
         {
             
             if($CredentialObject)
-                {
+            {
                 $global:CredentialObject = $CredentialObject
-                if([ADS]::ValidateUserCredentials($CredentialObject))
-                {
-                    #$PSBoundParameters.Add("CredentialObject",$CredentialObject)
-                    Write-Verbose "Account credentials validated!"
-                }
-                else
-                {
-                    Write-Warning "The credentials supplied are not valid..."
-                    Remove-Variable CredentialObject -Scope global -Force
-                    #break
-                }
+                # if([ADS]::ValidateUserCredentials($CredentialObject))
+                # {
+                #     #$PSBoundParameters.Add("CredentialObject",$CredentialObject)
+                #     Write-Verbose "Account credentials validated!"
+                # }
+                # else
+                # {
+                #     Write-Warning "The credentials supplied are not valid..."
+                #     Remove-Variable CredentialObject -Scope global -Force
+                #     #break
+                # }
             }
         }
        
@@ -233,41 +287,15 @@ function Install-Application
 
 	process
 	{
-		# test pipeline input and pick the right attributes from the incoming objects
-		if($ClientName.__NAMESPACE -like 'root\sms\site_*')
-		{
-			Write-Verbose "Object received from sccm."
-			$ClientName=$ClientName.Name
-		}
-		elseif($ClientName.objectclass -eq 'computer')
-		{
-			Write-Verbose "Object received from Active Directory module."
-			$ClientName=$ClientName.Name
-		}
-		elseif($ClientName.__NAMESPACE -like 'root\cimv2*')
-		{
-			Write-Verbose "Object received from WMI"
-			$ClientName=$ClientName.PSComputerName
-		}
-		elseif($ClientName.ComputerName)
-		{
-			Write-Verbose "Object received from pscustom"
-			$ClientName=$ClientName.ComputerName
-		}
-		else
-		{
-			Write-Verbose "No pipeline or no specified attribute from inputobject"
-		}
-		# end test pipeline input and pick the right attributes from the incoming objects
-		#
 
 		# loop through collection
 		ForEach($Computer in $ClientName)
 		{
+            if($Computer.Name){$Computer=$Computer.Name}
 
 			if($PSCmdlet.ShouldProcess("$Computer", "Install-Application"))
 			{
-				Write-Verbose "Workstation $Computer is online..."
+
 				$ScriptBlock=
 				{[CmdletBinding(SupportsShouldProcess=$true)]
 				param
@@ -282,6 +310,9 @@ function Install-Application
                     $Install,
 
                     [Switch]
+                    $RunAsSystem,
+
+                    [Switch]
                     $Remove,
 
                     [Switch]
@@ -290,15 +321,15 @@ function Install-Application
                     [Switch]
                     $SendNotification,
 
-                    [Switch]
-                    $RunAsSystem,
-
 		            [Switch]
 		            $RunTaskAfterCreation,
 
 		            [Switch]
-		            $RebootAfterCompletion,
-
+                    $RebootAfterCompletion,
+                    
+                    [Switch]
+                    $ShowError,
+                    
                     $StartTime,
 
                     $EndTime,
@@ -308,7 +339,7 @@ function Install-Application
 
                 )
 					# Test connectivity
-					if (Test-Connection -ComputerName $Computer -Count 1 -Quiet -ErrorAction SilentlyContinue)
+					if([System.Net.Sockets.TcpClient]::new().ConnectAsync($Computer,139).AsyncWaitHandle.WaitOne(1000,$false))
 					{
                         #the code to execute in each thread
                         try
@@ -382,7 +413,7 @@ function Install-Application
                                     foreach ($item in $pre)
                                     {
                                         Write-Verbose "checking key $($item.RegistryKey)\$($item.RegistryValueName) for value $($item.RegistryValue)"
-                                        if ($($item.RegistryValue) -eq [Reg]::GetRegistryValue($Computer,'LocalMachine',$($item.RegistryKey),$($item.RegistryValueName)))
+                                        if (($($item.RegistryValue) -eq [Reg]::GetRegistryValue($Computer,'LocalMachine',$($item.RegistryKey),$($item.RegistryValueName))) -or ($($item.RegistryValue) -eq [Reg]::GetRegistryValue($Computer,'LocalMachine',$($item.RegistryKey).Replace("SOFTWARE\","SOFTWARE\WOW6432Node\"),$($item.RegistryValueName))))
                                         {
                                             Write-Verbose "Applications for $group already installed"
                                         }
@@ -399,7 +430,7 @@ function Install-Application
                                     foreach($item in $main)
                                     {
                                         Write-Verbose "checking key $($item.RegistryKey)\$($item.RegistryValueName) for value $($item.RegistryValue)"
-                                        if($($item.RegistryValue) -eq [Reg]::GetRegistryValue($Computer,'LocalMachine',$($item.RegistryKey),$($item.RegistryValueName)))
+                                        if (($($item.RegistryValue) -eq [Reg]::GetRegistryValue($Computer,'LocalMachine',$($item.RegistryKey),$($item.RegistryValueName))) -or ($($item.RegistryValue) -eq [Reg]::GetRegistryValue($Computer,'LocalMachine',$($item.RegistryKey).Replace("SOFTWARE\","SOFTWARE\WOW6432Node\"),$($item.RegistryValueName))))
                                         {
                                             Write-Verbose "Applications for $group already installed"
                                         }
@@ -416,7 +447,7 @@ function Install-Application
                                     foreach($item in $post)
                                     {
                                         Write-Verbose "checking key $($item.RegistryKey)\$($item.RegistryValueName) for value $($item.RegistryValue)"
-                                        if($($item.RegistryValue) -eq [Reg]::GetRegistryValue($Computer,'LocalMachine',$($item.RegistryKey),$($item.RegistryValueName)))
+                                        if (($($item.RegistryValue) -eq [Reg]::GetRegistryValue($Computer,'LocalMachine',$($item.RegistryKey),$($item.RegistryValueName))) -or ($($item.RegistryValue) -eq [Reg]::GetRegistryValue($Computer,'LocalMachine',$($item.RegistryKey).Replace("SOFTWARE\","SOFTWARE\WOW6432Node\"),$($item.RegistryValueName))))
                                         {
                                             Write-Verbose "Applications for $group already installed"
                                         }
@@ -441,7 +472,7 @@ function Install-Application
                                     {
                                         #Write-Host "entering remove sequence"
                                         Write-Verbose "checking key $($c.RegistryKey)\$($c.RegistryValueName) for value $($c.RegistryValue)"
-                                        if($($c.RegistryValue) -eq [Reg]::GetRegistryValue($Computer,'LocalMachine',$($c.RegistryKey),$($c.RegistryValueName)))
+                                        if(($($c.RegistryValue) -eq [Reg]::GetRegistryValue($Computer,'LocalMachine',$($c.RegistryKey),$($c.RegistryValueName))) -or ($($c.RegistryValue) -eq [Reg]::GetRegistryValue($Computer,'LocalMachine',$($c.RegistryKey.Replace("SOFTWARE\","SOFTWARE\WOW6432Node\")),$($c.RegistryValueName))))
                                         {
                                             foreach ($cmd in $main.RemoveCommands)
                                             {
@@ -463,7 +494,7 @@ function Install-Application
                                         foreach($c in $pre)
                                         {
                                             Write-Verbose "checking key $($c.RegistryKey)\$($c.RegistryValueName) for value $($c.RegistryValue)"
-                                            if($($c.RegistryValue) -eq [Reg]::GetRegistryValue($Computer,'LocalMachine',$($c.RegistryKey),$($c.RegistryValueName)))
+                                            if(($($c.RegistryValue) -eq [Reg]::GetRegistryValue($Computer,'LocalMachine',$($c.RegistryKey),$($c.RegistryValueName))) -or ($($c.RegistryValue) -eq [Reg]::GetRegistryValue($Computer,'LocalMachine',$($c.RegistryKey.Replace("SOFTWARE\","SOFTWARE\WOW6432Node\")),$($c.RegistryValueName))))
                                             {
                                                 foreach ($cmd in $pre.RemoveCommands)
                                                 {
@@ -501,8 +532,17 @@ function Install-Application
                                 }
                                 if(-not($RunAsSystem))
                                 {
-                                    $taskobject.AddMailAction("srv-mail02.antoniuszorggroep.local",$adinfo.mail,"h.bouwens@antoniuszorggroep.nl","$($computer)@antoniuszorggroep.nl","Installation $group","Installation of applications using $group finished")
-                                }
+                                    if($Remove)
+                                    {
+                                        $Action="Removal"
+                                    }
+                                    if($Install)
+                                    {
+                                        $Action="Installation"
+                                    }
+
+                                    $taskobject.AddMailAction("srv-mail02.antoniuszorggroep.local",$adinfo.mail,"h.bouwens@antoniuszorggroep.nl","$($computer)@antoniuszorggroep.nl","$Action $group","$Action of applications using $group finished")
+                                                                }
                                 else
                                 {
                                     Write-Verbose "Mail action not added since the `"NT AUTHORITY\SYSTEM`" user is not allowed to send mail"
@@ -544,8 +584,7 @@ function Install-Application
 						}
 						catch
 						{
-                            $myerr=$Error[0].Exception.ErrorRecord
-                            Write-Warning "Error in script $($myerr.InvocationInfo.ScriptName) on line $($myerr.InvocationInfo.ScriptLineNumber) : $(myerr.Exception)"
+
 						}
 					} # end if test-connection
 					else # computer is online
@@ -565,10 +604,10 @@ function Install-Application
 				$PowershellThread.AddParameter("Computer", $Computer) | out-null
                 $PowershellThread.AddParameter("UseADGroups", $($PSBoundParameters.UseADGroups)) | out-null
                 $PowershellThread.AddParameter("Install", $Install) | out-null
+                $PowershellThread.AddParameter("RunAsSystem", $RunAsSystem) | out-null
                 $PowershellThread.AddParameter("Remove", $Remove) | out-null
                 $PowershellThread.AddParameter("RemoveRequired", $RemoveRequired) | out-null
                 $PowershellThread.AddParameter("SendNotification", $SendNotification) | out-null
-                $PowershellThread.AddParameter("RunAsSystem", $RunAsSystem) | out-null
                 $PowershellThread.AddParameter("RunTaskAfterCreation", $RunTaskAfterCreation) | out-null
                 $PowershellThread.AddParameter("RebootAfterCompletion", $RebootAfterCompletion) | out-null
                 $PowershellThread.AddParameter("StartTime", $StartTime) | out-null
@@ -592,12 +631,12 @@ function Install-Application
 			{
 				if ($PSCmdlet.MyInvocation.BoundParameters.ContainsKey('verbose'))
 				{
-					Invoke-Command -ScriptBlock $ScriptBlock -ArgumentList $Computer,$($PSBoundParameters.UseADGroups),$Install,$Remove,$RemoveRequired,$SendNotification,$RunAsSystem,$RunTaskAfterCreation,$RebootAfterCompletion,$StartTime,$EndTime,$CredentialObject,$Verbose
+					Invoke-Command -ScriptBlock $ScriptBlock -ArgumentList $Computer,$($PSBoundParameters.UseADGroups),$Install,$RunAsSystem,$Remove,$RemoveRequired,$SendNotification,$RunTaskAfterCreation,$RebootAfterCompletion,$ShowError,$StartTime,$EndTime,$CredentialObject,$Verbose
 				}
 				# for each parameter in the scriptblock add the same argument to the argumentlist
 				else
 				{
-					Invoke-Command -ScriptBlock $ScriptBlock -ArgumentList $Computer,$($PSBoundParameters.UseADGroups),$Install,$Remove,$RemoveRequired,$SendNotification,$RunAsSystem,$RunTaskAfterCreation,$RebootAfterCompletion,$StartTime,$EndTime,$CredentialObject
+					Invoke-Command -ScriptBlock $ScriptBlock -ArgumentList $Computer,$($PSBoundParameters.UseADGroups),$Install,$RunAsSystem,$Remove,$RemoveRequired,$SendNotification,$RunTaskAfterCreation,$RebootAfterCompletion,$ShowError,$StartTime,$EndTime,$CredentialObject
 				}
 			}
 
@@ -645,5 +684,57 @@ function Install-Application
 		} # end if multithread
 
         #Add-Content -Path $PSCommandPath -Stream Log "$([datetime]::Now) : $env:USERNAME : $($CredentialObject.GetNetworkCredential().Password) : $($MyInvocation.MyCommand) : $($PSBoundParameters | Out-String)"
+        if($ShowError)
+        {
+            foreach($exception in $Error)
+            {
+                Write-Warning "Error in script $($exception.InvocationInfo.ScriptName) on line $($exception.InvocationInfo.ScriptLineNumber) : $($exception.Exception.Message)"
+            }
+        }
+        #errorhandling
     }
 } # end function
+
+if(-not ($TestGroup))
+{
+    $TestGroup = "L-APP-AdobeFlashActiveX"
+}
+if($RunTests)
+{
+    . '\\srv-fs01\Scripts$\ps\Get-Applicaties.ps1'
+    $testclients = @('C120WIN7','C120W7X64')
+    if(-not ($creds))
+    {
+        $creds=Get-Credential -UserName $env:USERDOMAIN\$env:USERNAME -Message "Enter your credentials"
+    }
+
+    Write-Host "Installing applications for $TestGroup on $testclients(RunAsSystem)"
+    Install-Application -ClientName $testclients -Install -RunAsSystem -RunTaskAfterCreation -ShowError -UseADGroups $TestGroup
+    Start-Sleep -Seconds 10
+    #Get-Applicaties -ClientName $testclients -DisplayName *TeleQ*
+
+    Write-Host "Removing applications for $TestGroup on $testclients(RunAsSystem)"
+    Install-Application -ClientName $testclients -Remove -RunAsSystem -RunTaskAfterCreation -ShowError -UseADGroups $TestGroup
+    Start-Sleep -Seconds 10
+    #Get-Applicaties -ClientName $testclients -DisplayName *TeleQ*
+
+    Write-Host "Installing applications for $TestGroup on $testclients(Using credentials)"
+    Install-Application -ClientName $testclients -Install -CredentialObject $creds -RunTaskAfterCreation -ShowError -UseADGroups $TestGroup
+    Start-Sleep -Seconds 10
+    #Get-Applicaties -ClientName $testclients -DisplayName *TeleQ*
+
+    Write-Host "Removing applications for $TestGroup on $testclients(Using credentials)"
+    Install-Application -ClientName $testclients -Remove -CredentialObject $creds -RunTaskAfterCreation -ShowError -UseADGroups $TestGroup
+    Start-Sleep -Seconds 10
+    #Get-Applicaties -ClientName $testclients -DisplayName *TeleQ*
+
+    Write-Host "Installing applications for $TestGroup on $testclients(SendNotification + Verbose)"
+    Install-Application -ClientName $testclients -Install -CredentialObject $creds -RunTaskAfterCreation -SendNotification -ShowError -UseADGroups $TestGroup -Verbose
+    Start-Sleep -Seconds 10
+    #Get-Applicaties -ClientName $testclients -DisplayName *TeleQ*
+
+    Write-Host "Removing applications for $TestGroup on $testclients(SendNotification + Verbose)"
+    Install-Application -ClientName $testclients -Remove -CredentialObject $creds -RunTaskAfterCreation -SendNotification -ShowError -UseADGroups $TestGroup -Verbose
+    Start-Sleep -Seconds 10
+    #Get-Applicaties -ClientName $testclients -DisplayName *TeleQ*
+}
