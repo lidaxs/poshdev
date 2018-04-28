@@ -1,9 +1,12 @@
 <#
+    version 1.0.7.0
+    added IntToRoman
+    
     version 1.0.6.0
     added IntToBinary
     added BinaryToInt
     renamed tohex --> IntToHex
-    
+
     version 1.0.4.0
     added ToHex
 
@@ -319,4 +322,93 @@ function BinaryToInt {
     end {
     }
 }
+function RomanToInt {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory=$true,
+        ValueFromPipeline=$true,
+        Position=0)]
+        [String[]]
+        $InputObject
+    )
+    
+    begin {
+        [String[]]$roman1=@("MMM","MM","M")
+        [String[]]$roman2=@("CM", "DCCC", "DCC", "DC", "D", "CD", "CCC", "CC", "C")
+        [String[]]$roman3=@("XC", "LXXX", "LXX", "LX", "L", "XL", "XXX", "XX", "X")
+        [String[]]$roman4=@("IX", "VIII", "VII", "VI", "V", "IV", "III", "II", "I")
+        
+    }
+    
+    process
+    {
+        foreach($item in $InputObject)
+            {
+            $value=0
+            for ($i = 0; $i -lt 3; $i++) {
+                if($item.StartsWith($roman1[$i]))
+                {
+                    $len = $roman1[$i].Length
+                    $value += 1000 * (3 - $i)
+                    break
+            
+                }
+            }
+            
+            if($len -gt 0)
+            {
+                $item = $item.Substring($len)
+                $len=0
+            }
 
+            for ($i = 0; $i -lt 9; $i++) {
+                if($item.StartsWith($roman2[$i]))
+                {
+                    $value += 100 * (9 - $i)
+                    $len = $roman2[$i].Length
+                    break
+                }
+                
+            }
+        
+            if($len -gt 0)
+            {
+                $item = $item.Substring($len)
+                $len=0
+            }
+
+            for ($i = 0; $i -lt 9; $i++) {
+                if($item.StartsWith($roman3[$i]))
+                {
+                    $value += 10 * (9 - $i)
+                    $len = $roman3[$i].Length
+                    break
+                }
+                
+            }
+
+            if($len -gt 0)
+            {
+                $item = $item.Substring($len)
+                $len=0
+            }
+
+            for ($i = 0; $i -lt 9; $i++) {
+                if($item.StartsWith($roman4[$i]))
+                {
+                    $value += 9 - $i
+                    $len = $roman4[$i].Length
+                    break
+                }
+                #$roman4[$i]
+            }
+
+            $value
+
+        }
+    }
+    
+    end
+    {
+    }
+}
