@@ -1,4 +1,9 @@
 <#
+    version 1.0.6.0
+    added IntToBinary
+    added BinaryToInt
+    renamed tohex --> IntToHex
+    
     version 1.0.4.0
     added ToHex
 
@@ -83,7 +88,7 @@ Function ToHashTable
     Param
     (
         [Parameter(Mandatory=$true,
-                   ValueFromPipelineByPropertyName=$true,
+                   ValueFromPipeline=$true,
                    Position=0)]
         $InputObject
 
@@ -233,8 +238,7 @@ function ConvertFrom-ErrorRecord
   }
 }
 
-
-function ToHex {
+function IntToHex {
     [CmdletBinding()]
     param(
         # Parameter help description
@@ -269,3 +273,50 @@ function ToHex {
 
     }
 }
+
+function IntToBinary {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory=$true,
+                   ValueFromPipeline=$true,
+                   Position=0)]
+        $InputObject
+    )
+    
+    begin {
+    }
+    
+    process {
+        foreach ($item in $InputObject) {
+            [convert]::ToString($item,2)
+        }
+        
+    }
+    
+    end {
+    }
+}
+
+function BinaryToInt {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory=$true,
+                   ValueFromPipeline=$true,
+                   Position=0)]
+        $InputObject
+    )
+    
+    begin {
+    }
+    
+    process {
+        foreach ($item in $InputObject) {
+            [convert]::ToInt32($item,2)
+        }
+        
+    }
+    
+    end {
+    }
+}
+
