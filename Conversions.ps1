@@ -1,7 +1,10 @@
 <#
+    version 1.0.8.0
+    added RomanToInt
+    
     version 1.0.7.0
     added IntToRoman
-    
+
     version 1.0.6.0
     added IntToBinary
     added BinaryToInt
@@ -322,6 +325,7 @@ function BinaryToInt {
     end {
     }
 }
+
 function RomanToInt {
     [CmdletBinding()]
     param (
@@ -400,7 +404,7 @@ function RomanToInt {
                     $len = $roman4[$i].Length
                     break
                 }
-                #$roman4[$i]
+
             }
 
             $value
@@ -410,5 +414,52 @@ function RomanToInt {
     
     end
     {
+    }
+}
+
+
+function IntToRoman {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory=$true,
+        ValueFromPipeline=$true,
+        Position=0)]
+        [Int]
+        [ValidateRange(1,3999)]
+        $InputObject
+    )
+    
+    begin {
+        [String[]]$roman1=@("MMM","MM","M")
+        [String[]]$roman2=@("CM", "DCCC", "DCC", "DC", "D", "CD", "CCC", "CC", "C")
+        [String[]]$roman3=@("XC", "LXXX", "LXX", "LX", "L", "XL", "XXX", "XX", "X")
+        [String[]]$roman4=@("IX", "VIII", "VII", "VI", "V", "IV", "III", "II", "I")
+        
+    }
+
+    process
+    {
+        foreach($item in $InputObject)
+        {
+            $thousands=[Math]::Floor($item/1000)
+            $item%=1000
+            $hundreds=[Math]::Floor($item/100)
+            $item%=100
+            $tens=[Math]::Floor($item/10)
+            $item%=10
+            $units=$item%10
+
+            $StringBuilder= [System.Text.StringBuilder]::new()
+            if ($thousands -gt 0){ [void]$StringBuilder.Append($roman1[3 - $thousands])}
+            if ($hundreds -gt 0){ [void]$StringBuilder.Append($roman2[9 - $hundreds])}
+            if ($tens -gt 0){ [void]$StringBuilder.Append($roman3[9 - $tens])}
+            if ($units -gt 0){ [void]$StringBuilder.Append($roman4[9 - $units])}
+            $StringBuilder.ToString()
+        }
+    }
+
+    end
+    {
+
     }
 }
