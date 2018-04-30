@@ -1,7 +1,10 @@
 <#
+	version 1.0.5.5
+	set default value for dynamic parameter Type in beginblock to 'String'
+	
 	version 1.0.5.4
 	updated examples
-	
+
 	version 1.0.5.3
 	aliases not working as expected when using pipeline and piping different types of objects
 	added if($Computer.Name){$Computer=$Computer.Name} in processblock
@@ -176,6 +179,12 @@ Function Set-RegistryValue {
 		{
         	$PSBoundParameters.Hive = 'LocalMachine'
 		}
+
+		if ( -not ($PSBoundParameters.Type))
+		{
+			$PSBoundParameters.Type = 'String'
+		}
+
 		if ($MultiThread)
 		{
 			Write-Verbose "Creating Default Initial Session State"
