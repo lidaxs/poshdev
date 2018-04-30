@@ -1,4 +1,7 @@
 <#
+	version 1.0.5.4
+	updated examples
+	
 	version 1.0.5.3
 	aliases not working as expected when using pipeline and piping different types of objects
 	added if($Computer.Name){$Computer=$Computer.Name} in processblock
@@ -61,29 +64,29 @@ Function Set-RegistryValue {
 			The ValueName to add.(String)
 
 		.PARAMETER  Value
-			The Value to add or change.(String,Int16,Int32,Byte[],String[])
+			The Value to add/set or change.(String,Int16,Int32,Byte[],String[])
 
 		.PARAMETER  Type
-			The Type to add (String,DWord,Binary,MultiString,ExpandString,QWord)
+			The Type to set or add (String,DWord,Binary,MultiString,ExpandString,QWord)
 			...see possible values...use switch -ListRegistryValueKind
 
 		.EXAMPLE
-			Add-RegistryValue -ComputerName C120VMXP -Hive LocalMachine -Key "SOFTWARE\MyKey\MySubKey" -ValueName "My ValueName" -Value "My Value" -Type String
+			Set-RegistryValue -ComputerName C120VMXP -Hive LocalMachine -Key "SOFTWARE\MyKey\MySubKey" -ValueName "My ValueName" -Value "My Value" -Type String
 			
 		.EXAMPLE
-			Get-Content C:\temp\computers.txt | Add-RegistryValue -Hive LocalMachine -Key "SOFTWARE\MyKey\MySubKey" -ValueName DWTest -Value 123 -Type DWord
+			Get-Content C:\temp\computers.txt | Set-RegistryValue -Hive LocalMachine -Key "SOFTWARE\MyKey\MySubKey" -ValueName DWTest -Value 123 -Type DWord
 			
 		.EXAMPLE
-			Add-RegistryValue -ComputerName C120VMXP -Hive LocalMachine -Key "SOFTWARE\MyKey\MySubKey" -ValueName BinTest -Value ([Byte[]]@(12,23,34,23)) -Type Binary
+			Set-RegistryValue -ComputerName C120VMXP -Hive LocalMachine -Key "SOFTWARE\MyKey\MySubKey" -ValueName BinTest -Value ([Byte[]]@(12,23,34,23)) -Type Binary
 			
 		.EXAMPLE
-			Add-RegistryValue -ComputerName C120VMXP -Hive LocalMachine -Key "SOFTWARE\MyKey\MySubKey" -ValueName MSTest -Value ([String[]]@("one","two","three")) -Type MultiString
+			Set-RegistryValue -ComputerName C120VMXP -Hive LocalMachine -Key "SOFTWARE\MyKey\MySubKey" -ValueName MSTest -Value ([String[]]@("one","two","three")) -Type MultiString
 			
 		.EXAMPLE
-			Add-RegistryValue -ComputerName C120VMXP -Hive LocalMachine -Key "SOFTWARE\MyKey\MySubKey" -ValueName ESTest -Value "Dit is een expanded string" -Type ExpandString
+			Set-RegistryValue -ComputerName C120VMXP -Hive LocalMachine -Key "SOFTWARE\MyKey\MySubKey" -ValueName ESTest -Value "Dit is een expanded string" -Type ExpandString
 			
 		.EXAMPLE
-			Add-RegistryValue -ComputerName C120VMXP -Hive LocalMachine -Key "SOFTWARE\MyKey\MySubKey" -ValueName QTest -Value 2234437342 -Type QWord
+			Set-RegistryValue -ComputerName C120VMXP -Hive LocalMachine -Key "SOFTWARE\MyKey\MySubKey" -ValueName QTest -Value 2234437342 -Type QWord
 			
 		.INPUTS
 			System.String,System.String[],Switch
