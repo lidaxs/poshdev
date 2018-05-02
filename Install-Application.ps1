@@ -1,4 +1,7 @@
 ﻿<#
+    version 1.0.4.6
+    removed obsolete comment
+    
     version 1.0.4.5
     aliases not working as expected when using pipeline and piping different types of objects
 	added if($Computer.Name){$Computer=$Computer.Name} in processblock
@@ -254,17 +257,6 @@ function Install-Application
             if($CredentialObject)
             {
                 $global:CredentialObject = $CredentialObject
-                # if([ADS]::ValidateUserCredentials($CredentialObject))
-                # {
-                #     #$PSBoundParameters.Add("CredentialObject",$CredentialObject)
-                #     Write-Verbose "Account credentials validated!"
-                # }
-                # else
-                # {
-                #     Write-Warning "The credentials supplied are not valid..."
-                #     Remove-Variable CredentialObject -Scope global -Force
-                #     #break
-                # }
             }
         }
        
