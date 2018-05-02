@@ -1,4 +1,9 @@
 <#
+	version 1.2.6.2
+	fixed little bug with retrieving filepaths to patch
+	sometimes more filepaths are returned which are actually the same path(e.g. a patch is for windows7 but also for windows2008)
+	now the last item is picked
+
 	version 1.2.6.1
 	build try-catch block in Start-ProcessingPatchFiles
 	
@@ -952,9 +957,14 @@ function Get-WindowsUpdates
 								foreach($item in $result)
 								{
 									Write-Verbose "resolving path \\srv-sccm02\Packages$\Updates\*\$($item.UniqueId)"
-									$ppath=(Resolve-Path "\\srv-sccm02\Packages$\Updates\*\$($item.UniqueId)\*.cab","\\srv-sccm02\Packages$\Updates\*\$($item.UniqueId)\*.exe" -ErrorAction 0).ProviderPath
+									$ppath=(Resolve-Path "\\srv-sccm02\Packages$\Updates\*\$($item.UniqueId)\*.cab","\\srv-sccm02\Packages$\Updates\*\$($item.UniqueId)\*.exe" -ErrorAction 0).ProviderPath #| Select-Object -First
 									if($ppath)
 									{
+										# sometimes more than one item(same kb) is returned..pick the last one
+										if($ppath.count -gt 1)
+										{
+											$ppath = $ppath[-1]
+										}
 										Write-Verbose "Adding path $ppath to resultitem"
 										Add-Member -InputObject $item -MemberType NoteProperty -Name FilePath -Value $ppath -Force
 									}
