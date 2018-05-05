@@ -1,4 +1,8 @@
 <#
+    version 1.0.9.0
+    added Base64ToString
+    added StringToBase64
+
     version 1.0.8.0
     added RomanToInt
     
@@ -417,7 +421,6 @@ function RomanToInt {
     }
 }
 
-
 function IntToRoman {
     [CmdletBinding()]
     param (
@@ -461,5 +464,59 @@ function IntToRoman {
     end
     {
 
+    }
+}
+
+function Base64ToString {
+    [CmdletBinding()]
+    param (
+        [String[]]
+        $Base64String,
+
+        [String]
+        [ValidateSet('ASCII','UTF7','UTF8','Unicode')]
+        $CodeType = 'ASCII'
+
+    )
+    
+    begin {
+    }
+    
+    process {
+        foreach($item in $Base64String)
+        {
+            [System.Text.Encoding]::$CodeType.GetString([System.Convert]::FromBase64String($item))
+        }
+        
+    }
+    
+    end {
+    }
+}
+
+function StringToBase64 {
+    [CmdletBinding()]
+    param (
+        [String[]]
+        $String,
+
+        [String]
+        [ValidateSet('ASCII','UTF7','UTF8','Unicode')]
+        $CodeType = 'ASCII'
+
+    )
+    
+    begin {
+    }
+    
+    process {
+        foreach($item in $String)
+        {
+            [System.Text.Encoding]::ASCII.GetString([System.Convert]::FromBase64String($item))
+        }
+        
+    }
+    
+    end {
     }
 }
