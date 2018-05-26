@@ -1,4 +1,7 @@
 ﻿<#
+    version 1.0.2.0
+    removed ipaddress when parameter -ShowHostNames is used
+    
     version 1.0.1
     added ipaddress when parameter -ShowHostNames is used
 
@@ -330,13 +333,13 @@ function Get-NetworkStatistics {
                                         
                                         #check with dns cache first
                                             if ($dnsCache.containskey( $remoteAddress)) {
-                                                $remoteAddress = $($dnsCache[$remoteAddress])
+                                                $remoteAddress = $($dnsCache[$remoteAddress]) -replace ".antoniuszorggroep.local",""
                                                 write-verbose "using cached REMOTE '$remoteAddress'"
                                             }
                                             else{
                                                 #if address isn't in the cache, resolve it and add it
                                                     $tmpAddress = $remoteAddress
-                                                    $remoteAddress = [System.Net.DNS]::GetHostByAddress("$remoteAddress").hostname + " : $remoteAddress"
+                                                    $remoteAddress = [System.Net.DNS]::GetHostByAddress("$remoteAddress").hostname -replace ".antoniuszorggroep.local",""
                                                     $dnsCache.add($tmpAddress, $remoteAddress)
                                                     write-verbose "using non cached REMOTE '$remoteAddress`t$tmpAddress"
                                             }
@@ -352,13 +355,13 @@ function Get-NetworkStatistics {
                                     elseif($localAddress -match "\w"){
                                         #check with dns cache first
                                             if($dnsCache.containskey($localAddress)){
-                                                $localAddress = $dnsCache[$localAddress]
+                                                $localAddress = $dnsCache[$localAddress] -replace ".antoniuszorggroep.local",""
                                                 write-verbose "using cached LOCAL '$localAddress'"
                                             }
                                             else{
                                                 #if address isn't in the cache, resolve it and add it
                                                     $tmpAddress = $localAddress
-                                                    $localAddress = [System.Net.DNS]::GetHostByAddress("$localAddress").hostname
+                                                    $localAddress = [System.Net.DNS]::GetHostByAddress("$localAddress").hostname -replace ".antoniuszorggroep.local",""
                                                     $dnsCache.add($localAddress, $tmpAddress)
                                                     write-verbose "using non cached LOCAL '$localAddress'`t'$tmpAddress'"
                                             }

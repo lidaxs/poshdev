@@ -1,4 +1,11 @@
 <#
+	version 1.2.6.4
+	fixed some issues with constructing the commandline in Start-ProcessingPatch
+
+	version 1.2.6.3
+	removed some comment with code
+	fixed line 355 with subject mail(added space)
+	
 	version 1.2.6.2
 	fixed little bug with retrieving filepaths to patch
 	sometimes more filepaths are returned which are actually the same path(e.g. a patch is for windows7 but also for windows2008)
@@ -189,7 +196,7 @@ function Start-ProcessingPatchFiles
                 elseif ($extension -eq ".exe")
                 {
                     $procname="`"$File`""
-                    if(($FilePath -match "rvkroots") -or ($FilePath -match "KB890830"))
+                    if(($File -match "rvkroots") -or ($File -match "KB890830") -or ($File -match "MSIPatchRegFix"))
                     {
                         if ($Operation -eq 'Install')
                         {
@@ -197,7 +204,7 @@ function Start-ProcessingPatchFiles
                         }
                         
                     }
-                    elseif ($FilePath -match "ndp")
+                    elseif ($File -match "ndp")
                     {
                         if ($Operation -eq 'Install') {
                             $patch_arguments="/q","/norestart"
@@ -207,21 +214,21 @@ function Start-ProcessingPatchFiles
                         }
                         
 					}
-					elseif ($FilePath -match "SQL")
+					elseif ($File -match "SQL")
 					{
 						# find out if we are running from explorer or taskengine
 						$ParentProcessName = (Get-WmiObject -Class Win32_Process -Filter "ProcessID='$PID'").ParentProcessID | ForEach-Object {Get-Process -Id $_ | Select-Object -ExpandProperty Name}
-						if($ParentProcessName -eq  "explorer")
+						if(($ParentProcessName -eq  'explorer') -or ($ParentProcessName -eq 'winpty-agent'))
 						{
-							$procname=$null
-							Write-Host "Starting $FilePath manually"
-							#Invoke-Item $FilePath
-							Start-Process -FilePath $($FilePath) -Wait
+							$procname=$File
+							$patch_arguments='noarguments'
+							Write-Host "Starting $File manually"
 						}
 						if($ParentProcessName -eq  "taskeng")
 						{
-							Write-Host "Skipping $FilePath"
-							$procname=$null
+							Write-Host "Skipping $File"
+							$procname='donothing'
+							$patch_arguments='noarguments'
 						}
 					}
                     else
@@ -249,7 +256,6 @@ function Start-ProcessingPatchFiles
 				{
 					$processinfo=Invoke-PatchProcess -ProcessName $procname -Argument $patch_arguments
 
-                    #if($exitcode.GetType().Name -eq "Object[]"){Write-Host "Object";$exitcode=$exitcode | Select -expa ExitCode}
                     if($processinfo[1] -eq 0){
                         $message="`'$File`' succesfully processed!"
                     }
@@ -261,6 +267,9 @@ function Start-ProcessingPatchFiles
                     }
                     elseif($processinfo[1] -eq [int]-196608){
                         $message="Probably not sufficient rights!"
+					}
+					elseif($processinfo[1] -eq [int]1223){
+                        $message="Canceled by user"
                     }
                     elseif($processinfo[1] -eq 2){
                         if($File -match ".exe")
@@ -312,12 +321,12 @@ function Start-ProcessingPatchFiles
                 $output.Message     = $message
                 $output.Operation   = $Operation
                 $output.FreeVirtualMemoryPercentage=Get-Memory | Select-Object -ExpandProperty FreeVirtualPercentage
-				if(($output.exitcode -eq 0) -or ($output.exitcode -eq 3010)-or ($output.exitcode -eq 1642) -or ($output.exitcode -eq 1641) -or ($output.ExitCode -eq -2145124329))
+				if(($output.exitcode -eq 0) -or ($output.exitcode -eq 3010) -or ($output.exitcode -eq 1642) -or ($output.exitcode -eq 1641) -or ($output.ExitCode -eq -2145124329))
 				{
                     $output.IsDeployed=$true
-
                 }
-                else{
+				else
+				{
                     $output.IsDeployed=$false
                 }
                 #endregion
@@ -349,10 +358,9 @@ function Start-ProcessingPatchFiles
         {
             if($SendNotification)
             {
-                $subject += "$($Operation) ($($counter) updates)"
+                $subject += " $($Operation) ($($counter) updates)"
                 $mailbody = $mailresult | Select-Object PatchFile,Parameters,ExitCode,Message,IsDeployed,ProcessName,Operation | Out-HTMLDataTable -AsString
                 Send-MailMessage -From $env:COMPUTERNAME@antoniuszorggroep.nl -Subject $subject -SmtpServer "srv-mail02.antoniuszorggroep.local" -Cc @("h.bouwens@antoniuszorggroep.nl","systeembeheer@antoniuszorggroep.nl") -To (Get-MailAdresBeheerder) -Body $mailbody -BodyAsHtml
-                #Send-MailMessage -From $env:COMPUTERNAME@antoniuszorggroep.nl -Subject $subject -SmtpServer "srv-mail02.antoniuszorggroep.local" -Cc @("h.bouwens@antoniuszorggroep.nl") -To (Get-MailAdresBeheerder) -Body $mailbody -BodyAsHtml
             }
             Remove-Item -Path "\\srv-sccm02\sources$\Software\AZG\PS\Temp\*" -Force -Recurse
         }
@@ -524,36 +532,50 @@ function Invoke-PatchProcess
 			about_comment_based_help
 
 	#>
-	[CmdletBinding(SupportsShouldProcess=$true)]
+	[CmdletBinding()]
 	[OutputType([System.Int32])]
 	param(
-		[Parameter(Position=0, Mandatory=$true)]
-		[System.String]
+		[Parameter(Mandatory=$false)]
 		$ProcessName,
 
 		[Parameter(Mandatory=$false)]
 		$Arguments
 	)
-	begin{}
+	begin
+	{
+
+	}
 	process
 	{
-		if ($PSCmdlet.ShouldProcess("$ProcessName $Arguments","Invoke-PatchProcess")) 
+		try
 		{
-			try
+			Write-Verbose "Starting process $ProcessName with arguments $Arguments"
+			if($ProcessName -eq 'donothing')
 			{
-				Write-Verbose "Starting process $ProcessName with arguments $Arguments"
-				Start-Process $ProcessName -ArgumentList $Arguments -Passthru -Wait -OutVariable var_result
-
-				Write-Verbose "returning exitcode $($var_result.Item(0).ExitCode) from function Invoke-PatchProcess"
-
-				return $($var_result.Item(0).ExitCode)
+				#canceled by user
+				return 1223
 			}
-			catch {
-				Write-Error $Error[0].Exception.Message
+			if($Arguments -eq "noarguments")
+			{
+				Start-Process "$ProcessName" -Passthru -Wait -OutVariable var_result
 			}
+			else
+			{
+				Start-Process "$ProcessName" -ArgumentList $Arguments -Passthru -Wait -OutVariable var_result
+			}
+			
+			Write-Verbose "returning exitcode $($var_result.Item(0).ExitCode) from function Invoke-PatchProcess"
+
+			return $($var_result.Item(0).ExitCode)
+		}
+		catch {
+			Write-Error $Error[0].Exception.Message
 		}
 	}
-	end{}
+	end
+	{
+
+	}
 }
 
 Function Get-Memory
@@ -890,7 +912,7 @@ function Get-WindowsUpdates
 						{
 							$global:qry="Select * from CCM_UpdateStatus"
                             #$article.Replace("KB","")
-							#$qry="Select * from CCM_UpdateStatus WHERE Status = 'Missing' And Article Like '$Article' And Bulletin LIKE '$Bulletin'"
+
 							if ($Status.Count -eq 1)
 							{
 								$qry="$qry WHERE Status = '$($Status)'"
@@ -937,7 +959,7 @@ function Get-WindowsUpdates
 										$item.ProductID = $ClassificationGUIDs2Type.$($item.ProductID)
 									}
 								}
-									#$global:result=Get-WmiObject -ComputerName $env:COMPUTERNAME -Namespace ROOT\ccm\SoftwareUpdates\UpdatesStore -Query $qry -ErrorAction Stop
+							
 							}
 							catch [System.Management.ManagementException]
 							{

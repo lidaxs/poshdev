@@ -1,4 +1,7 @@
 <#
+    version 1.0.9.2
+    added [CM_SYSTEM] to hash
+    
     version 1.0.9.0
     added Base64ToString
     added StringToBase64
@@ -29,6 +32,27 @@
     version 1.0.0.0
     first upload
 #>
+
+Class Conversion{
+    $WhatGoesIn
+    $WhatComesOut
+    $EncodingTypes = @('ASCII', 'UTF7', 'UTF8', 'UTF32', 'UniCode')
+    Conversion([Byte[]]$ByteArray) : Base()
+    {
+        $this.WhatGoesIn = $ByteArray
+        $Encoding = 'ASCII'
+        $this.WhatComesOut = [System.Text.Encoding]::$Encoding.GetString($ByteArray)
+    }
+    Conversion([Byte[]]$ByteArray,$Encoding) : Base()
+    {
+        $this.WhatGoesIn = $ByteArray
+        if($Encoding -in $this.EncodingTypes){
+            Write-Host "type `'$Encoding`' found...continuing"
+            $this.WhatComesOut = [System.Text.Encoding]::$Encoding.GetString($ByteArray)
+        }
+    }
+}
+
 Function ByteArrayToString {
     param(
         [Byte[]]$ByteArray,
@@ -124,6 +148,17 @@ Function ToHashTable
 
                 Write-Output $out
             }
+            if($item.GetType().Name -eq 'CM_SYSTEM')
+            {
+                [System.Collections.Hashtable]$out=@{}
+                foreach($thing in $item.psobject.properties)
+                {
+                    $out.Add($($thing.Name),$($thing.Value))
+                    #Write-Host "$($thing) : $($thing.Value)"
+                }
+
+                Write-Output $out
+            }
 
             if($item.GetType().Name -eq 'HashTable')
             {
@@ -182,8 +217,6 @@ function ToPSCustom {
                 $out 
             }
             if ($item.GetType().Name -eq 'DataRow') {
-                #Write-Output "DataRow"
-                #[PSCustomObject]$item
                 [PSCustomObject]$out=@{}
                 foreach ($column in $item.Table.Columns) {
                     Add-Member -InputObject $out -MemberType NoteProperty -Name $column.ColumnName -Value $item.$column.ColumnName
@@ -200,7 +233,17 @@ function ToPSCustom {
                 $out=New-Object -TypeName PSCustomObject
                 foreach ($prop in $item.properties)
                 {
+                    Add-Member -InputObject $out -MemberType NoteProperty -Name $($prop.Name) -Value $($prop.Value) -Force
+                }
 
+                Write-Output $out
+            
+            }
+            if ($item.GetType().Name -eq 'CimInstance')
+            {
+                $out=New-Object -TypeName PSCustomObject
+                foreach ($prop in $item.properties)
+                {
                     Add-Member -InputObject $out -MemberType NoteProperty -Name $($prop.Name) -Value $($prop.Value) -Force
                 }
 

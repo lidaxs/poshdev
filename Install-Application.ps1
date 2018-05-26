@@ -1,4 +1,7 @@
 ﻿<#
+    version 1.0.4.7
+    solved bug removal of 64-bit apps
+    
     version 1.0.4.6
     removed obsolete comment
     
@@ -405,6 +408,7 @@ function Install-Application
                                     foreach ($item in $pre)
                                     {
                                         Write-Verbose "checking key $($item.RegistryKey)\$($item.RegistryValueName) for value $($item.RegistryValue)"
+                                        Write-Verbose "checking key $($item.RegistryKey.Replace("SOFTWARE\","SOFTWARE\WOW6432Node\"))\$($item.RegistryValueName) for value $($item.RegistryValue)"
                                         if (($($item.RegistryValue) -eq [Reg]::GetRegistryValue($Computer,'LocalMachine',$($item.RegistryKey),$($item.RegistryValueName))) -or ($($item.RegistryValue) -eq [Reg]::GetRegistryValue($Computer,'LocalMachine',$($item.RegistryKey).Replace("SOFTWARE\","SOFTWARE\WOW6432Node\"),$($item.RegistryValueName))))
                                         {
                                             Write-Verbose "Applications for $group already installed"
@@ -422,6 +426,7 @@ function Install-Application
                                     foreach($item in $main)
                                     {
                                         Write-Verbose "checking key $($item.RegistryKey)\$($item.RegistryValueName) for value $($item.RegistryValue)"
+                                        Write-Verbose "checking key $($item.RegistryKey.Replace("SOFTWARE\","SOFTWARE\WOW6432Node\"))\$($item.RegistryValueName) for value $($item.RegistryValue)"
                                         if (($($item.RegistryValue) -eq [Reg]::GetRegistryValue($Computer,'LocalMachine',$($item.RegistryKey),$($item.RegistryValueName))) -or ($($item.RegistryValue) -eq [Reg]::GetRegistryValue($Computer,'LocalMachine',$($item.RegistryKey).Replace("SOFTWARE\","SOFTWARE\WOW6432Node\"),$($item.RegistryValueName))))
                                         {
                                             Write-Verbose "Applications for $group already installed"
@@ -464,7 +469,8 @@ function Install-Application
                                     {
                                         #Write-Host "entering remove sequence"
                                         Write-Verbose "checking key $($c.RegistryKey)\$($c.RegistryValueName) for value $($c.RegistryValue)"
-                                        if(($($c.RegistryValue) -eq [Reg]::GetRegistryValue($Computer,'LocalMachine',$($c.RegistryKey),$($c.RegistryValueName))) -or ($($c.RegistryValue) -eq [Reg]::GetRegistryValue($Computer,'LocalMachine',$($c.RegistryKey.Replace("SOFTWARE\","SOFTWARE\WOW6432Node\")),$($c.RegistryValueName))))
+                                        Write-Verbose "checking key $($c.RegistryKey.Replace("SOFTWARE\","SOFTWARE\WOW6432Node\"))\$($c.RegistryValueName) for value $($c.RegistryValue)"
+                                        if(($($c.RegistryValue) -eq [Reg]::GetRegistryValue($Computer,'LocalMachine',$($c.RegistryKey),$($c.RegistryValueName))) -or ($($c.RegistryValue) -eq [Reg]::GetRegistryValue($Computer,'LocalMachine',$($c.RegistryKey.Replace("SOFTWARE\","SOFTWARE\Wow6432Node\")),$($c.RegistryValueName))))
                                         {
                                             foreach ($cmd in $main.RemoveCommands)
                                             {
@@ -478,7 +484,7 @@ function Install-Application
 
                                         else
                                         {
-
+                                            Write-Verbose "Applications for $group already removed"
                                         }
                                     }
                                     if($RemoveRequired)
