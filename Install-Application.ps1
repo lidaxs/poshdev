@@ -608,6 +608,7 @@ function Install-Application
                 $PowershellThread.AddParameter("SendNotification", $SendNotification) | out-null
                 $PowershellThread.AddParameter("RunTaskAfterCreation", $RunTaskAfterCreation) | out-null
                 $PowershellThread.AddParameter("RebootAfterCompletion", $RebootAfterCompletion) | out-null
+                $PowershellThread.AddParameter("ShowError", $ShowError) | out-null
                 $PowershellThread.AddParameter("StartTime", $StartTime) | out-null
                 $PowershellThread.AddParameter("EndTime", $EndTime) | out-null
                 $PowershellThread.AddParameter("CredentialObject", $CredentialObject) | out-null

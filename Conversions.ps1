@@ -1,4 +1,10 @@
 <#
+    version 1.0.9.4
+    added class errorobject
+    
+    version 1.0.9.3
+    added  class conversion...just for test
+
     version 1.0.9.2
     added [CM_SYSTEM] to hash
     
@@ -51,6 +57,25 @@ Class Conversion{
             $this.WhatComesOut = [System.Text.Encoding]::$Encoding.GetString($ByteArray)
         }
     }
+}
+
+Class ErrorObject{
+   $Exception
+   $Reason
+   $Target
+   $Script
+   $Line
+   $Column
+
+   ErrorObject([Management.Automation.ErrorRecord]$objError) : Base()
+   {
+       $this.Exception = $objError.Exception.Message
+       $this.Reason    = $objError.CategoryInfo.Reason
+       $this.Target    = $objError.CategoryInfo.TargetName
+       $this.Script    = $objError.InvocationInfo.ScriptName
+       $this.Line      = $objError.InvocationInfo.ScriptLineNumber
+       $this.Column    = $objError.InvocationInfo.OffsetInLine
+   }
 }
 
 Function ByteArrayToString {

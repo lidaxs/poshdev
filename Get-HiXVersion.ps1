@@ -1,11 +1,25 @@
 ﻿<#
+	version 1.0.0.6
+	removing variables in endblock
+
+	version 1.0.0.5
+	Included parameter IncludeFolderHash
+	this parameter calculates the hash of the folder where HiX resides
+	reference added to function Get-FolderHash in beginblock
+
+	version 1.0.0.4
+	Added MigratieUpdate
+
+	version 1.0.0.3
+	Added Migratie and removed Sedatie
+
 	version 1.0.0.2
 	aliases not working as expected when using pipeline and piping different types of objects
 	added if($Computer.Name){$Computer=$Computer.Name} in processblock
-	
+
 	version 1.0.0.1
 	test connectivity now with wmi
-	
+
 	version 1.0.0
 	Initial upload
 	Added Aliases to ClientName parameter to support pipeline in from WMI,SCCM & Active Directory
@@ -83,10 +97,17 @@ Function Get-HiXVersion {
 		$Update,
 
 		[Switch]
-		$Sedatie,
+		$Migratie,
 
 		[Switch]
-		$ZCD
+		$MigratieUpdate,
+
+		[Switch]
+		$ZCD,
+
+		[Switch]
+		$IncludeFolderHash
+
 	)
 
 	# set initial values in the begin block (populate variables, check dependent modules etc.)
@@ -95,6 +116,7 @@ Function Get-HiXVersion {
 			Write-verbose 'This function works only on powershell version 3.0 and higher.`nUpgrade to .NET 4.0 and install WinRM 3.0'
 			#break
 		}
+		. '\\srv-fs01\Scripts$\ps\Get-FolderHash.ps1'
 	} # end beginblock
 
 	# processblock
@@ -117,6 +139,7 @@ Function Get-HiXVersion {
 					# start try
 					try{
 						$objComputerSystem=Get-WmiObject -Class Win32_ComputerSystem -Property SystemType,DomainRole -ComputerName $Computer -ErrorAction Stop
+                        $objOperatingSystem=Get-WmiObject -Class Win32_OperatingSystem -Property Caption -ComputerName $Computer -ErrorAction Stop
 					} # end try
 
 					# start catch specific
@@ -129,21 +152,27 @@ Function Get-HiXVersion {
 					catch {
 						$Error[0].Exception.Message
 					} # end catch rest of errors
-					
+
 
 					# end # set Program Files directory according to systemtype 32-bit or 64-bit
 
 					$ChipsoftDirectory="Chipsoft"
-					
+
 					# find out if we are dealing with server or workstation
-					if($objComputerSystem.DomainRole -ge 3){
+					if($objComputerSystem.DomainRole -ge 3)
+                    {
 						$rootdrive="E$"
-						Write-Verbose "$Computer is a server....setting rootdrive to $rootdrive"}
+                        Write-Verbose "$Computer is a server....setting rootdrive to $rootdrive"
+                        if($objOperatingSystem.Caption -match "2016")
+                        {
+                            $rootdrive = "C$"
+                            Write-Verbose "OperatingSystem is $($objOperatingSystem.Caption) ...Setting rootdrive to $rootdrive"
+                        }
+					}
 					else{
 						$rootdrive="C$"
 						Write-Verbose "$Computer is a workstation....setting rootdrive to $rootdrive"
 					}
-
 
 					If($Produktie){
 						$Exepath="$rootdrive\$ChipsoftDirectory\HiX_Produktie\ChipSoft.FCL.ClassRegistry.dll"
@@ -165,8 +194,12 @@ Function Get-HiXVersion {
 						$Exepath="$rootdrive\$ChipsoftDirectory\HiX_Update\ChipSoft.FCL.ClassRegistry.dll"
 						Write-Verbose "Setting path to $Exepath"
 					}
-					If($Sedatie){
-						$Exepath="$rootdrive\$ChipsoftDirectory\HiX_Sedatie\ChipSoft.FCL.ClassRegistry.dll"
+					If($Migratie){
+						$Exepath="$rootdrive\$ChipsoftDirectory\HiX_Migratie\ChipSoft.FCL.ClassRegistry.dll"
+						Write-Verbose "Setting path to $Exepath"
+					}
+					If($MigratieUpdate){
+						$Exepath="$rootdrive\$ChipsoftDirectory\HiX_MigratieUpdate\ChipSoft.FCL.ClassRegistry.dll"
 						Write-Verbose "Setting path to $Exepath"
 					}
 					If($ZCD){
@@ -176,18 +209,24 @@ Function Get-HiXVersion {
 
 					# test for existing executablepath
 					if(Test-Path "\\$Computer\$ExePath"){
-						
+
 						# open the file and read the fileinfo
 						$file=Get-Item "\\$Computer\$ExePath" -Force | Select-Object @{Expression={[System.Version]$_.VersionInfo.FileVersion.Replace(',','.').Split(' _')[0]};Label="FileVersion"},LastWriteTime
-						
+
 						# create psobject $output
 						$output=New-Object PSObject | Select-Object ComputerName,FileVersion,LastWriteTime
-						
+
 						# write info to $output
 						$output.ComputerName=$Computer
 						$output.FileVersion=$file.FileVersion
 						$output.LastWriteTime=$file.LastWriteTime
-						
+
+						if($IncludeFolderHash)
+						{
+							$parentpath = (Get-Item "\\$Computer\$ExePath").DirectoryName
+							$hash = (Get-FolderHash -Path $parentpath).Hash
+							Add-Member -InputObject $output -MemberType NoteProperty -Name Hash -Value $hash
+						}
 						# output info....
 						Write-Output $output
 
@@ -197,7 +236,6 @@ Function Get-HiXVersion {
 					}
 					# end test for existing executablepath
 					# end do the things you want to do after this line
-				
 			}
 			# else $Computer not online
 			else {
@@ -213,7 +251,7 @@ Function Get-HiXVersion {
 	# remove variables  in the endblock
 	end {
 
-		Remove-Variable objComputerSystem -Force -ErrorAction SilentlyContinue
+		Remove-Variable objComputerSystem,hash -Force -ErrorAction SilentlyContinue
 
 	} # end endblock
 

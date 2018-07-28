@@ -1,8 +1,17 @@
 ﻿<#
+    version 1.0.0.3
+    added helper HS2PS
+    comparing objects outputs strings in the format of hashtable
+    this helperfunction converts them to objects
+    there is a issue with properties and values with spaces...
+
+    version 1.0.0.2
+    added objects to compare
+
     version 1.0.0.1
     added some documentation
     fixed typo
-    
+
     version 1.0.0.0
     Initial upload
 #>
@@ -72,12 +81,12 @@ function Compare-Set
     (
         # ReferenceObject help description
         [Parameter(Mandatory=$true)]
-        [ValidateScript({($_ -is 'String') -or ($_ -is 'Int')})]
+        [ValidateScript({($_ -is 'String') -or ($_ -is 'Int') -or ($_ -is 'Object')})]
         $ReferenceObject,
 
         # DifferenceObject help description
         [Parameter(Mandatory=$true)]
-        [ValidateScript({($_ -is 'String') -or ($_ -is 'Int')})]
+        [ValidateScript({($_ -is 'String') -or ($_ -is 'Int') -or ($_ -is 'Object')})]
         $DifferenceObject
     )
 
@@ -103,7 +112,7 @@ function Compare-Set
 
         # create customobject for returning results
         $result = New-Object PSCustomObject | Select-Object ReferenceObject,DifferenceObject,InBoth,Combined,OnlyInReference,OnlyInDifference,ExclusiveInBoth
-        
+
         # create copy of object because they change
         $InBoth = New-Object "System.Collections.Generic.HashSet[$($ReferenceObject.GetType().Name.Trim("[]"))]" $HashSet1
         $InBoth.IntersectWith($HashSet2)
@@ -134,4 +143,18 @@ function Compare-Set
     End
     {
     }
+}
+function HS2PS ($HashString)
+{
+    $states = $HashString.Replace("@{","").Replace("}","").Split("; ")
+
+    $out    = New-Object -TypeName PSCustomObject
+    for ($i = 0; $i -lt $states.Count+1; $i+=2)
+    {
+        [String]$prop  = $states[$i].Split("=")[0]
+        [String]$value = $states[$i].Split("=")[1]
+        $value
+        Add-Member -InputObject $out -MemberType NoteProperty -Name $prop -Value $value -Force
+    }
+    $out
 }

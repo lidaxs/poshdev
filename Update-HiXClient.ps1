@@ -1,4 +1,19 @@
 <#
+	version 1.0.1.7
+	-Force parameter removes HiX directory before updating
+
+	version 1.0.1.6
+	removed link to Get-HiXVersion function
+
+	version 1.0.1.5
+	added force parameter
+
+    version 1.0.1.4
+	added HiX_MigratieUpdate (6.1)
+
+    version 1.0.1.3
+    added HiX_Migratie (6.1)
+
 	version 1.0.1.2
 	aliases not working as expected when using pipeline and piping different types of objects
 	added if($Computer.Name){$Computer=$Computer.Name} in processblock
@@ -46,8 +61,11 @@ function Update-Hixclient{
 		.PARAMETER  Support
 			Tells the function to update the Support files on the client
 
-		.PARAMETER  Sedatie
-			Tells the function to update the Sedatie files on the client
+		.PARAMETER  Migratie
+			Tells the function to update the Migratie files on the client
+
+		.PARAMETER  MigratieUpdate
+			Tells the function to update the MigratieUpdate files on the client
 
 		.PARAMETER  DWH
 			Tells the function to update the DWH files on the client
@@ -56,7 +74,7 @@ function Update-Hixclient{
 			Tells the function to update the DWH Acceptatie files on the client
 
 		.PARAMETER  Kill
-			Kills EZIS/HiX on the client when doing an update 
+			Kills EZIS/HiX on the client when doing an update
 
 		.PARAMETER  MaxThreads
 			[Int]Tells the function how many threads can run simultaneously
@@ -106,9 +124,15 @@ function Update-Hixclient{
 
         [Switch]
         $Acceptatie,
- 
+
         [Switch]
         $Update,
+
+        [Switch]
+        $Migratie,
+
+        [Switch]
+		$MigratieUpdate,
 
         [Switch]
         $Ontwikkel,
@@ -125,39 +149,42 @@ function Update-Hixclient{
         [Switch]
         $Kill,
 
+		[Switch]
+		$Force,
+
         [Switch]
         $MultiThread,
 
 		[int]
 		$MaxThreads=20,
-		
+
 		[int]
 		$MaxResultTime=20000,
-		
+
 		[int]
 		$SleepTimer=3000
 	)
-	
+
 	begin
 	{
 		if($MultiThread)
 		{
 			Write-Verbose "Creating Default Initial Session State"
 		    $ISS = [system.management.automation.runspaces.initialsessionstate]::CreateDefault()
-			
+
 			Write-Verbose "Creating RunspacePool in which the threads will run"
 		    $RunspacePool = [runspacefactory]::CreateRunspacePool(1, $MaxThreads, $ISS, $Host)
-			
+
 			Write-Verbose "Opening RunspacePool"
 		    $RunspacePool.Open()
-			
+
 			Write-Verbose "Creating Jobs array which will hold each job"
 			$Jobs = @()
 	        #$PSBoundParameters
 		}
-		
+
         # define environments
-        [System.Collections.ArrayList]$Environments=@("Produktie","Acceptatie","Update","Ontwikkel","Support","Sedatie","ZCD","DWH","DWH_ACC")
+        [System.Collections.ArrayList]$Environments=@("Produktie","Acceptatie","Update","Migratie","MigratieUpdate","Ontwikkel","Support","ZCD","DWH","DWH_ACC")
 
 	}
 	process{
@@ -166,7 +193,7 @@ function Update-Hixclient{
 		ForEach($Computer in $ClientName){
 
 			if($Computer.Name){$Computer=$Computer.Name}
-			
+
 			# Test connectivity
 			if ((Get-WmiObject -Query "Select * From Win32_PingStatus Where (Address='$Computer') and timeout=1000").StatusCode -eq 0)
 			{
@@ -195,19 +222,21 @@ function Update-Hixclient{
 
                                 [System.String]
                                 $Environment,
-                                
+
                                 [Switch]
-                                $Kill
+								$Kill,
+
+								[Switch]
+								$Force
 
                             )
                                 #the code to execute in each thread
                                 $sccmserver="srv-sccm02"
-                                
                                 try
                                 {
                                     . \\srv-fs01\Scripts$\ps\Get-RegistryValue.ps1
                                     . \\srv-fs01\Scripts$\ps\Set-RegistryValue.ps1
-									. \\srv-fs01\Scripts$\ps\Get-HiXVersion.ps1
+									#. \\srv-fs01\Scripts$\ps\Get-HiXVersion.ps1
                                 }
                                 catch
                                 {
@@ -234,7 +263,7 @@ function Update-Hixclient{
                                         }
 
                                     }
-                                    else 
+                                    else
                                     {
                                         $ProgramDriveHidden="C$"
                                         $ProgramDrive="C:"
@@ -279,11 +308,16 @@ function Update-Hixclient{
                                 }
                                 catch
                                 {
-                                    
-                                }
+
+								}
+								if($Force){
+									Write-Verbose "Setting currentversion to fake version to force an update even if it is the same version"
+									$CurrentVersion = [System.Version]'0.0.0.0'
+								}
                                 if($CurrentVersion -eq $Version)
                                 {
-                                    Write-Verbose "$Computer already has version $Version"
+									Write-Verbose "$Computer already has version $Version"
+
                                 }
                                 else
                                 {
@@ -319,7 +353,7 @@ function Update-Hixclient{
                                     {
                                         Write-Verbose "$ExecutablePath in use by $owners"
                                     }
-                                    
+
                                     # start the copying/regvalues/startmenu
                                     else
                                     {
@@ -336,12 +370,21 @@ function Update-Hixclient{
 										try
 										{
 	                                        $hixsource="\\$sccmserver\sources$\Software\Chipsoft\$Version"
-                                            Write-Verbose "HiX source is $hixsource"
+                                            $major    = $Version.Major
+                                            $minor    = $Version.Minor
+                                            #$build    = $Version.Build
+                                            #$revision = $Version.Revision
+											Write-Verbose "HiX source is $hixsource"
+											if($Force)
+											{
+												Write-Verbose "removing \\$Computer\$ProgramDriveHidden\Chipsoft\HiX_$Environment"
+												Remove-Item -Path "\\$Computer\$ProgramDriveHidden\Chipsoft\HiX_$Environment" -Recurse
+											}
                                             Write-Verbose "Creating directory \\$Computer\$ProgramDriveHidden\Chipsoft\HiX_$Environment"
 	                                        New-Item -Path "\\$Computer\$ProgramDriveHidden\Chipsoft\HiX_$Environment" -ItemType Directory -Force -ErrorAction SilentlyContinue
-                                            
-                                            Write-Verbose "Copying $hixsource\PFiles\Chipsoft\HiX 6.0\* to \\$Computer\$ProgramDriveHidden\Chipsoft\HiX_$Environment"
-	                                        Copy-Item -Path "$hixsource\PFiles\Chipsoft\HiX 6.0\*" -Destination "\\$Computer\$ProgramDriveHidden\Chipsoft\HiX_$Environment" -Force -Recurse -Container
+
+                                            Write-Verbose "Copying $hixsource\PFiles\Chipsoft\HiX $($major).$($minor)\* to \\$Computer\$ProgramDriveHidden\Chipsoft\HiX_$Environment"
+	                                        Copy-Item -Path "$hixsource\PFiles\Chipsoft\HiX $($major).$($minor)\*" -Destination "\\$Computer\$ProgramDriveHidden\Chipsoft\HiX_$Environment" -Force -Recurse -Container
 	                                        Copy-Item -Path "$hixsource\$HiXSpecific\HiX\*" -Destination "\\$Computer\$ProgramDriveHidden\Chipsoft\HiX_$Environment" -Force -Recurse
 										}
 										catch
@@ -363,7 +406,7 @@ function Update-Hixclient{
                                     }
 
                                 }
-								
+
 								# show what has been done
 								$file=Get-Item "\\$Computer\$ProgramDriveHidden\Chipsoft\HiX_$Environment\ChipSoft.FCL.ClassRegistry.dll" -Force | Select-Object @{Expression={[System.Version]$_.VersionInfo.FileVersion.Replace(',','.').Split(' _')[0]};Label="FileVersion"},LastWriteTime
 								$output=New-Object PSObject | Select-Object ComputerName,Environment,FileVersion,LastWriteTime
@@ -383,7 +426,8 @@ function Update-Hixclient{
 		                    $PowershellThread.AddParameter("Computer", $Computer) | out-null
 		                    $PowershellThread.AddParameter("Version", $Version) | out-null
 		                    $PowershellThread.AddParameter("Environment",$Environment) | out-null
-		                    $PowershellThread.AddParameter("Kill",$Kill) | out-null
+							$PowershellThread.AddParameter("Kill",$Kill) | out-null
+							$PowershellThread.AddParameter("Force",$Force) | out-null
 							if($PSCmdlet.MyInvocation.BoundParameters.ContainsKey('verbose'))
 							{
 								$PowershellThread.AddParameter("Verbose") | out-null
@@ -400,12 +444,12 @@ function Update-Hixclient{
 						{
 							if ($PSCmdlet.MyInvocation.BoundParameters.ContainsKey('verbose'))
 							{
-								Invoke-Command -ScriptBlock $ScriptBlock -ArgumentList $Computer,$Version,$Environment,$Kill,$Verbose
+								Invoke-Command -ScriptBlock $ScriptBlock -ArgumentList $Computer,$Version,$Environment,$Kill,$Force,$Verbose
 							}
 							# for each parameter in the scriptblock add the same argument to the argumentlist
 							else
 							{
-								Invoke-Command -ScriptBlock $ScriptBlock -ArgumentList $Computer,$Version,$Environment,$Kill
+								Invoke-Command -ScriptBlock $ScriptBlock -ArgumentList $Computer,$Version,$Environment,$Kill,$Force
 							}
 						}
                     } # end if psboundparameter ContainsKey
@@ -427,9 +471,9 @@ function Update-Hixclient{
 			if($MultiThread)
 			{
 				$ResultTimer = Get-Date
-				
-				While (@($Jobs | Where-Object {$_.Handle -ne $Null}).count -gt 0)  {
-				
+
+				While (@($Jobs | Where-Object {$null -ne $_.Handle}).count -gt 0)  {
+
 					$Remaining = "$($($Jobs | Where-Object {$_.Handle.IsCompleted -eq $False}).object)"
 					If ($Remaining.Length -gt 60){
 						$Remaining = $Remaining.Substring(0,60) + "..."
@@ -437,7 +481,7 @@ function Update-Hixclient{
 					Write-Progress `
 						-Activity "Waiting for Jobs - $($MaxThreads - $($RunspacePool.GetAvailableRunspaces())) of $MaxThreads threads running" `
 						-PercentComplete (($Jobs.count - $($($Jobs | Where-Object {$_.Handle.IsCompleted -eq $False}).count)) / $Jobs.Count * 100) `
-						-Status "$(@($($Jobs | Where-Object {$_.Handle.IsCompleted -eq $False})).count) remaining - $remaining" 
+						-Status "$(@($($Jobs | Where-Object {$_.Handle.IsCompleted -eq $False})).count) remaining - $remaining"
 
 					ForEach ($Job in $($Jobs | Where-Object {$_.Handle.IsCompleted -eq $True})){
 						$Job.Thread.EndInvoke($Job.Handle)
@@ -451,8 +495,8 @@ function Update-Hixclient{
 						break
 					}
 					Start-Sleep -Milliseconds $SleepTimer
-					
-				} 
+
+				}
 			$RunspacePool.Close() | Out-Null
 			$RunspacePool.Dispose() | Out-Null
 		}

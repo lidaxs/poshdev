@@ -1,18 +1,20 @@
 ﻿<#
 	version 1.0.0.3
-	fixed typo in alias of parameter clientname
+	removed statement remove-variable
+	was not necessary after all
 
 	version 1.0.0.2
-	formatted script
+	removing variables in endblock
 
 	version 1.0.0.1
-	aliases not working as expected when using pipeline and piping different types of objects
-	added if($Computer.Name){$Computer=$Computer.Name} in processblock
+	added some predefined exclusion
 
 	version 1.0.0.0
 	initial upload
+
+    wishlist foldersize/acl's
 #>
-function New-Script {
+function Get-FolderHash {
 	<#
 		.SYNOPSIS
 			Short description of function.
@@ -37,10 +39,10 @@ function New-Script {
 			Time to wait between checks if thread has finished
 
 		.EXAMPLE
-			PS C:\> New-Script -ClientName C120VMXP,C120WIN7
+			PS C:\> Get-FolderHash -ClientName C120VMXP,C120WIN7
 
 		.EXAMPLE
-			PS C:\> $mycollection | New-Script
+			PS C:\> $mycollection | Get-FolderHash
 
 		.INPUTS
 			System.String,System.String[]
@@ -61,11 +63,14 @@ function New-Script {
 	[OutputType([System.Object])]
 	param(
 		[Parameter(Mandatory=$false,ValueFromPipeline=$true,ValueFromPipelineByPropertyName=$true)]
-		[Alias("Name","PSComputerName","CN","MachineName","Workstation","ServerName","HostName","ComputerName")]
+		[Alias("Directory","Map","DirectoryPath","Folder","FolderPath")]
 		[ValidateNotNullOrEmpty()]
-		$ClientName=@($env:COMPUTERNAME),
+		$Path,
 
-		# run the script multithreaded against multiple computers
+        [String[]]
+        $Exclude = @('*.xml','*.log','*dd.ini','GenerateEzisStructure*'),
+
+		# run the script multithreaded against multiple targets
 		[Parameter(Mandatory=$false)]
 		[Switch]
 		$MultiThread,
@@ -73,12 +78,12 @@ function New-Script {
 		# maximum number of threads that can run simultaniously
 		[Parameter(Mandatory=$false)]
 		[Int]
-		$MaxThreads=20,
+		$MaxThreads=4,
 
 		# Maximum time(seconds) in which a thread must finish before a timeout occurs
 		[Parameter(Mandatory=$false)]
 		[Int]
-		$MaxResultTime=20,
+		$MaxResultTime=120,
 
 		[Parameter(Mandatory=$false)]
 		[Int]
@@ -105,56 +110,63 @@ function New-Script {
 	process
 	{
 		# loop through collection
-		ForEach($Computer in $ClientName)
+		ForEach($iPath in $Path)
 		{
 
-			if($Computer.Name){$Computer=$Computer.Name}
-
-			if($PSCmdlet.ShouldProcess("$Computer", "New-Script"))
+			if($PSCmdlet.ShouldProcess("$iPath", "Get-FolderHash"))
 			{
 
 				$ScriptBlock=
 				{[CmdletBinding(SupportsShouldProcess=$true)]
 				param
 				(
-					[String]
-					$Computer
+					$iPath,
+
+                    $Exclude
 				)
-					# Test connectivity
-					if ((Get-WmiObject -Query "Select * From Win32_PingStatus Where (Address='$Computer') and timeout=1000").StatusCode -eq 0)
+					# Test path
+					if ( [System.IO.Directory]::Exists("$iPath"))
 					{
 						#the code to execute in each thread
 						try
 						{
+                            $files = Get-ChildItem $iPath -Exclude $Exclude -Recurse | Where-Object { -not $_.psiscontainer }
+
+                            $allBytes = new-object System.Collections.Generic.List[byte]
+                            foreach ($file in $files)
+                            {
+                                $allBytes.AddRange([System.IO.File]::ReadAllBytes($file.FullName))
+                                $allBytes.AddRange([System.Text.Encoding]::UTF8.GetBytes($file.Name))
+                            }
+                            $hasher         = [System.Security.Cryptography.MD5]::Create()
+                            $calculatedHash = [string]::Join("",$($hasher.ComputeHash($allBytes.ToArray()) | ForEach-Object {"{0:x2}" -f $_}))
+
+                            [PSCustomObject]$output = "" | Select-Object Path,Hash,Exclusions
+                            $output.Path     = $iPath
+                            $output.Hash     = $calculatedHash
+                            $output.Exclusions = $Exclude
+                            $output
 						}
 						catch
 						{
+                            $Error[0].Exception.Message
 						}
-					} # end if test-connection
-					else # computer is online
+					} # end if test-path
+					else # path exists
 					{
-						Write-Warning "$Computer is not online!"
+						Write-Warning "$iPath does not exist or path not reachable!"
 					}
 				} # end scriptblock
 
 
 			} # end if $PSCmdlet.ShouldProcess
 
-			####
-			# you can add other parameters and they should correspond with the parameters defined in the $ScriptBlock
-			#$PowershellThread.AddParameter("AnotherParameter", $AnotherParameter) | out-null
-			#param
-			#	(
-			#		[String]
-			#		$Computer,
-			#		$AnotherParameter
-			#	)
-			####
 
 			if ($MultiThread)
 			{
 				$PowershellThread = [powershell]::Create().AddScript($ScriptBlock)
-				$PowershellThread.AddParameter("Computer", $Computer) | out-null
+				$PowershellThread.AddParameter("iPath", $iPath) | out-null
+                $PowershellThread.AddParameter("Exclude", $Exclude) | out-null
 				if($PSCmdlet.MyInvocation.BoundParameters.ContainsKey('verbose'))
 				{
 					$PowershellThread.AddParameter("Verbose") | out-null
@@ -165,19 +177,19 @@ function New-Script {
 				$Job = "" | Select-Object Handle, Thread, object
 				$Job.Handle = $Handle
 				$Job.Thread = $PowershellThread
-				$Job.Object = $Computer.ToString()
+				$Job.Object = $iPath.ToString()
 				$Jobs += $Job
 			}
 			else # $MultiThread
 			{
 				if ($PSCmdlet.MyInvocation.BoundParameters.ContainsKey('verbose'))
 				{
-					Invoke-Command -ScriptBlock $ScriptBlock -ArgumentList $Computer,$Verbose
+					Invoke-Command -ScriptBlock $ScriptBlock -ArgumentList $iPath,$Exclude,$Verbose
 				}
 				# for each parameter in the scriptblock add the same argument to the argumentlist
 				else
 				{
-					Invoke-Command -ScriptBlock $ScriptBlock -ArgumentList $Computer
+					Invoke-Command -ScriptBlock $ScriptBlock -ArgumentList $iPath,$Exclude
 				}
 			}
 
@@ -193,7 +205,6 @@ function New-Script {
 			$ResultTimer = Get-Date
 			While (@($Jobs | Where-Object {$Null -ne $_.Handle}).count -gt 0)
 			{
-
 				$Remaining = "$($($Jobs | Where-Object {$_.Handle.IsCompleted -eq $False}).object)"
 				If ($Remaining.Length -gt 60)
 				{
